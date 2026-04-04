@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>席・机管理</title>
+  <style>
+    .form-row { display: flex; align-items: center; flex-wrap: wrap; gap: 0.8rem; margin-bottom: 1rem; }
+    button { border: none; border-radius: 6px; background: #1976d2; color: white; padding: 0.5rem 0.9rem; font-size: 0.95rem; cursor: pointer; transition: background-color 0.2s ease; }
+    button:hover { background: #145a9e; }
+    .form-row span { font-weight: 600; color: #212121; }
+    #message { min-height: 1.4rem; margin-top: 0.5rem; color: #bf360c; }
+    #desks { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0.9rem; margin-top: 1rem; }
+    .desk-card { background: white; border-radius: 8px; border: 1px solid #dce3e8; box-shadow: 0 2px 6px rgba(30, 80, 115, 0.08); padding: 0.8rem; }
+    .desk-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.7rem; }
+    .desk-controls { display: flex; align-items: center; gap: 0.5rem; font-size: 0.86rem; }
+    .seat-list { margin: 0; padding: 0.5rem; list-style: none; display: grid; grid-template-columns: repeat(auto-fill,minmax(50px,1fr)); gap: 0.45rem; min-height: 42px; background:#f7fbff; border:1px dashed #b2cfe7; border-radius:6px; }
+    .seat-item { background:#e8f4ff; border:1px solid #90aebf; border-radius:4px; padding:4px 6px; text-align:center; font-size:0.82rem; cursor:pointer; user-select:none; }
+    .seat-item.dragging { opacity:0.4; }
+    .seat-item.drag-over { border-color:#0288d1; background:#d3efff; }
+    .desk-card.free { border-color:#7ccb80; border-width: 2px;}
+    .desk-card.occupied { border-color:#ff0000; border-width: 2px; }
+  </style>
+</head>
+<body>
+  <h2>机と席の管理</h2>
+  <div class="form-row">
+    <button id="addDeskBtn" type="button">机を追加</button>
+    <span id="deskStatus">残り机: 0</span>
+    <button id="addSeatBtn" type="button">椅子を追加</button>
+    <span id="seatStatus">残り椅子: 0</span>
+  </div>
+  <div>椅子はダブルクリックで削除（プールに戻る）。ドラッグ＆ドロップで机間移動可能。</div>
+
+  <div id="message" role="status" aria-live="polite"></div>
+
+  <div id="desks" aria-live="polite"></div>
+
+  <script>
+    const deskCountInput = document.getElementById('deskCount');
+    const defaultSeatsInput = document.getElementById('defaultSeats');
+    const generateBtn = document.getElementById('generateBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const desksEl = document.getElementById('desks');
+    const message = document.getElementById('message');
+
+    const STORAGE_KEY = 'club_exhibition_desks';
+    let desks = [];
+    let totalDesks = 0;
+    let totalSeats = 0;
+    let remainingDesks = 0;
+    let remainingSeats = 0;
+
+    function createSeat(id) {
+      return { id };
+    }
+
+    function createDesk(name, seatCount) {
+      const seats = Array.from({ length: seatCount }, (_, i) => createSeat(`${name}-seat-${i + 1}`));
+      return { id: `${Date.now()}-${Math.random()}`, name, seatCount, status: 'free', seats };
+    }
+
+    function saveData() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        totalDesks,
+        totalSeats,
+        remainingDesks,
+        remainingSeats,
+        desks
+      }));
+    }
+
+    // 机の椅子数調整
+    function adjustDeskSeats(desk, desiredCount) {
+      desiredCount = Number.isInteger(desiredCount) ? desiredCount : 0;
+      desk.seatCount = Math.max(0, Math.min(50, desiredCount));
+
+      if (desk.seats.length > desk.seatCount) {
+        desk.seats = desk.seats.slice(0, desk.seatCount);
+      }
+    }
+
+    function loadData() { //サーバ保存にする
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          desks = parsed.map(d => ({
+            id: d.id || `${Date.now()}-${Math.random()}`,
+            name: d.name || '机',
+            seatCount: Number.isInteger(d.seatCount) ? d.seatCount : 0,
+            status: d.status === 'occupied' ? 'occupied' : 'free',
+            seats: Array.isArray(d.seats) ? d.seats.map(s => ({ id: s.id || `${d.name}-seat` })) : []
+          }));
+          totalDesks = desks.length;
+          totalSeats = desks.reduce((sum, d) => sum + d.seats.length, 0);
+          remainingDesks = 0;
+          remainingSeats = 0;
+          desks.forEach(d => adjustDeskSeats(d, d.seatCount));
+        } else if (parsed && typeof parsed === 'object' && Array.isArray(parsed.desks)) {
+          totalDesks = Number.isInteger(parsed.totalDesks) ? parsed.totalDesks : 0;
+          totalSeats = Number.isInteger(parsed.totalSeats) ? parsed.totalSeats : 0;
+          remainingDesks = Number.isInteger(parsed.remainingDesks) ? parsed.remainingDesks : 0;
+          remainingSeats = Number.isInteger(parsed.remainingSeats) ? parsed.remainingSeats : 0;
+          desks = parsed.desks.map(d => ({
+            id: d.id || `${Date.now()}-${Math.random()}`,
+            name: d.name || '机',
+            seatCount: Number.isInteger(d.seatCount) ? d.seatCount : 0,
+            status: d.status === 'occupied' ? 'occupied' : 'free',
+            seats: Array.isArray(d.seats) ? d.seats.map(s => ({ id: s.id || `${d.name}-seat` })) : []
+          }));
+          desks.forEach(d => adjustDeskSeats(d, d.seatCount));
+        }
+      } catch (e) {
+        console.warn('ロード失敗', e);
+      }
+    }
+
+    function setDeskStatus(deskId) {
+      const desk = desks.find(d => d.id === deskId);
+      if (!desk) return;
+      desk.status = desk.status === 'free' ? 'occupied' : 'free';
+      saveData();
+      render();
+    }
+
+    function updateStatus() {
+      const deskStatus = document.getElementById('deskStatus');
+      const seatStatus = document.getElementById('seatStatus');
+      if (deskStatus) deskStatus.textContent = `残り机: ${remainingDesks}`;
+      if (seatStatus) seatStatus.textContent = `残り椅子: ${remainingSeats}`;
+    }
+
+    function render() {
+      if (deskCountInput) deskCountInput.value = totalDesks;
+      if (defaultSeatsInput) defaultSeatsInput.value = totalSeats;
+      desksEl.innerHTML = '';
+      if (desks.length === 0) {
+        desksEl.innerHTML = '<p>机がありません。追加ボタンで机を追加してください。</p>';
+        updateStatus();
+        return;
+      }
+
+      desks.forEach(desk => {
+        const deskCard = document.createElement('div');
+        deskCard.className = `desk-card ${desk.status}`;
+        deskCard.dataset.id = desk.id;
+
+        const header = document.createElement('div');
+        header.className = 'desk-header';
+
+        const title = document.createElement('span');
+        title.className = 'desk-id';
+        title.textContent = desk.name;
+
+        const statusBtn = document.createElement('button');
+        statusBtn.textContent = desk.status === 'occupied' ? '使用中' : '空席';
+        statusBtn.style.marginRight = '8px';
+        statusBtn.addEventListener('click', () => setDeskStatus(desk.id));
+
+        const controls = document.createElement('span');
+        controls.className = 'desk-controls';
+        controls.innerHTML = `椅子: ${desk.seatCount} <button type="button" data-desk-id="${desk.id}" class="add-seat">＋椅子</button> <button data-desk-id="${desk.id}" class="delete-desk">削除</button>`;
+
+        header.appendChild(title);
+        header.appendChild(statusBtn);
+        header.appendChild(controls);
+
+        const seatList = document.createElement('ul');
+        seatList.className = 'seat-list';
+
+        desk.seats.forEach((seat, idx) => {
+          const seatItem = document.createElement('li');
+          seatItem.className = 'seat-item';
+          seatItem.textContent = `席 ${idx + 1}`;
+          seatItem.dataset.deskId = desk.id;
+          seatItem.dataset.seatIndex = idx;
+          seatItem.dataset.id = `${desk.id}-seat-${idx}`;
+
+          seatItem.draggable = true;
+          seatItem.title = 'ダブルクリックするとプールに戻ります';
+          seatItem.addEventListener('dragstart', e => {
+            e.dataTransfer.setData('application/json', JSON.stringify({ deskId: desk.id, seatIndex: idx }));
+            e.dataTransfer.effectAllowed = 'move';
+            e.target.classList.add('dragging');
+          });
+
+          seatItem.addEventListener('dblclick', e => {
+            e.preventDefault();
+            const fromDesk = desks.find(d => d.id === desk.id);
+            if (!fromDesk) return;
+            const removedSeat = fromDesk.seats.splice(idx, 1)[0];
+            if (!removedSeat) return;
+            fromDesk.seatCount = fromDesk.seats.length;
+            remainingSeats += 1;
+            message.textContent = `椅子をプールに戻しました。残り椅子: ${remainingSeats}`;
+            saveData();
+            render();
+          });
+
+          seatItem.addEventListener('dragend', e => {
+            e.target.classList.remove('dragging');
+          });
+
+          seatItem.addEventListener('dragover', e => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            e.currentTarget.classList.add('drag-over');
+          });
+
+          seatItem.addEventListener('dragleave', e => {
+            e.currentTarget.classList.remove('drag-over');
+          });
+
+          seatItem.addEventListener('drop', e => {
+            e.preventDefault();
+            e.stopPropagation();
+            e.currentTarget.classList.remove('drag-over');
+            const data = JSON.parse(e.dataTransfer.getData('application/json'));
+            const fromDesk = desks.find(d => d.id === data.deskId);
+            const toDesk = desks.find(d => d.id === desk.id);
+            if (!fromDesk || !toDesk) return;
+            if (fromDesk === toDesk && data.seatIndex === idx) return;
+
+            const movedSeat = fromDesk.seats.splice(data.seatIndex, 1)[0];
+            if (!movedSeat) return;
+
+            let targetIndex = idx;
+            if (fromDesk === toDesk && data.seatIndex < idx) {
+              targetIndex--;
+            }
+            toDesk.seats.splice(targetIndex, 0, movedSeat);
+
+            fromDesk.seatCount = fromDesk.seats.length;
+            toDesk.seatCount = toDesk.seats.length;
+            saveData();
+            render();
+          });
+
+          seatList.appendChild(seatItem);
+        });
+
+        seatList.addEventListener('dragover', e => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+        });
+
+        seatList.addEventListener('drop', e => {
+          e.preventDefault();
+          const data = JSON.parse(e.dataTransfer.getData('application/json'));
+          const fromDesk = desks.find(d => d.id === data.deskId);
+          const toDesk = desks.find(d => d.id === desk.id);
+          if (!fromDesk || !toDesk) return;
+          const movedSeat = fromDesk.seats.splice(data.seatIndex, 1)[0];
+          if (!movedSeat) return;
+
+          toDesk.seats.push(movedSeat);
+          fromDesk.seatCount = fromDesk.seats.length;
+          toDesk.seatCount = toDesk.seats.length;
+          saveData();
+          render();
+        });
+
+        deskCard.appendChild(header);
+        deskCard.appendChild(seatList);
+        desksEl.appendChild(deskCard);
+      });
+
+      document.querySelectorAll('.add-seat').forEach(btn => {
+        btn.addEventListener('click', e => {
+          const deskId = e.currentTarget.dataset.deskId;
+          if (remainingSeats <= 0) {
+            message.textContent = '残り椅子がありません。';
+            return;
+          }
+          const desk = desks.find(d => d.id === deskId);
+          if (!desk) return;
+          if (desk.seats.length >= 50) {
+            message.textContent = '1机あたり椅子は最大50です。';
+            return;
+          }
+          const newSeat = createSeat(`${desk.name}-seat-${desk.seats.length + 1}`);
+          desk.seats.push(newSeat);
+          desk.seatCount = desk.seats.length;
+          remainingSeats -= 1;
+          saveData();
+          render();
+        });
+      });
+
+      document.querySelectorAll('.delete-desk').forEach(btn => {
+        btn.addEventListener('click', e => {
+          const deskId = e.currentTarget.dataset.deskId;
+          const desk = desks.find(d => d.id === deskId);
+          if (!desk) return;
+          // 残り机に戻し、椅子も在庫へ戻す
+          remainingDesks += 1;
+          remainingSeats += desk.seats.length;
+          desks = desks.filter(d => d.id !== deskId);
+          saveData();
+          render();
+        });
+      });
+      updateStatus();
+    }
+
+    if (generateBtn) {
+      generateBtn.addEventListener('click', () => {
+        message.textContent = '';
+        const deskCount = Number(deskCountInput?.value || 0);
+        const totalSeatCount = Number(defaultSeatsInput?.value || 0);
+        if (!Number.isInteger(deskCount) || deskCount < 0 || deskCount > 200) {
+          message.textContent = '合計机数は0〜200の整数で指定してください。';
+          return;
+        }
+        if (!Number.isInteger(totalSeatCount) || totalSeatCount < 0 || totalSeatCount > 500) {
+          message.textContent = '合計椅子数は0〜500の整数で指定してください。';
+          return;
+        }
+        totalDesks = deskCount;
+        totalSeats = totalSeatCount;
+        remainingDesks = deskCount;
+        remainingSeats = totalSeatCount;
+        desks = [];
+        saveData();
+        render();
+      });
+    }
+
+    const addDeskBtn = document.getElementById('addDeskBtn');
+    const addSeatBtn = document.getElementById('addSeatBtn');
+
+    if (addDeskBtn) {
+      addDeskBtn.addEventListener('click', () => {
+        message.textContent = '';
+        if (remainingDesks <= 0) {
+          message.textContent = '残り机がありません。';
+          return;
+        }
+        const newDeskId = desks.length + 1;
+        desks.push(createDesk(`机 ${newDeskId}`, 0));
+        remainingDesks -= 1;
+        saveData();
+        render();
+      });
+    }
+
+    if (addSeatBtn) {
+      addSeatBtn.addEventListener('click', () => {
+        message.textContent = '';
+        if (remainingSeats <= 0) {
+          message.textContent = '残り椅子がありません。';
+          return;
+        }
+        if (desks.length === 0) {
+          message.textContent = '先に机を追加してください。';
+          return;
+        }
+        const targetDesk = desks[desks.length - 1];
+        if (targetDesk.seats.length >= 50) {
+          message.textContent = 'この机の椅子は最大です。';
+          return;
+        }
+        targetDesk.seats.push(createSeat(`${targetDesk.name}-seat-${targetDesk.seats.length + 1}`));
+        targetDesk.seatCount = targetDesk.seats.length;
+        remainingSeats -= 1;
+        saveData();
+        render();
+      });
+    }
+
+    if (clearBtn) {
+      clearBtn.addEventListener('click', () => {
+        desks = [];
+        totalDesks = 0;
+        totalSeats = 0;
+        remainingDesks = 0;
+        remainingSeats = 0;
+        localStorage.removeItem(STORAGE_KEY);
+        render();
+      });
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      loadData();
+      if (desks.length === 0 && remainingDesks === 0 && remainingSeats === 0) {
+        if (deskCountInput && defaultSeatsInput) {
+          totalDesks = Number(deskCountInput.value);
+          totalSeats = Number(defaultSeatsInput.value);
+          remainingDesks = totalDesks;
+          remainingSeats = totalSeats;
+          desks = [];
+          saveData();
+        }
+      }
+      render();
+    });
+  </script>
+</body>
+</html>

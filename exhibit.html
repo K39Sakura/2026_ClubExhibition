@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- CSS -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/lightbox2/2.11.4/css/lightbox.css" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="test.css">
+
+  <!-- SplideのCSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@splidejs/splide@4.1.4/dist/css/splide.min.css">
+  <!-- SplideのJavaScript -->
+  <script src="https://cdn.jsdelivr.net/npm/@splidejs/splide@4.1.4/dist/js/splide.min.js"></script>
+
+  <title>TMNCT</title>
+</head>
+
+  <!-- トグル用チェックボックス -->
+  <input type="checkbox" id="sidebar-toggle" aria-label="Toggle menu">
+
+  <!-- サイドバー開閉アイコン -->
+  <label for="sidebar-toggle" class="sidebar-icon" role="button"></label>
+
+  <!-- サイドバー本体 -->
+  <nav class="sidebar">
+    <ol>
+      <li><a href="index.html" style="font-size: 20px;">TOP</a></li>
+      <li><a href="exhibit.html" style="font-size: 20px;">展示紹介</a></li>
+      <li><a href="survey.html" style="font-size: 20px;">アンケート</a></li>
+    </ol>
+  </nav>
+  <body>
+    <h2>展示紹介</h2>
+    <main>
+    <p style="font-size: 130%; padding-right:18px; padding-left:18px; font-weight: bold;">ボドゲ一覧</p>
+      <section id="image-carousel" class="splide" aria-label="IMG">
+        <div class="splide__track">
+          <ul class="splide__list" id="splide-list">
+            <!-- Slides are rendered by exhibit.js from localStorage or fallback images -->
+          </ul>
+        </div>
+      </section>
+    </main>
+  </body>
+
+  <script>
+  async function renderSlides() {
+    const list = document.getElementById('splide-list');
+    list.innerHTML = '';
+
+    const defaultItems = [];
+
+    if (!localStorage.getItem('galleryItems')) {
+      localStorage.setItem('galleryItems', JSON.stringify(defaultItems));
+    }
+
+    const stored = JSON.parse(localStorage.getItem('galleryItems') || '[]');
+    const fallback = defaultItems;
+
+    let serverItems = [];
+    try {
+      const resp = await fetch('/api/gallery');
+      if (resp.ok) serverItems = await resp.json();
+    } catch (e) {}
+
+    const items = serverItems.concat(stored).concat(fallback);
+
+    items.forEach(item => {
+      const li = document.createElement('li');
+      li.className = 'splide__slide';
+
+      const figure = document.createElement('figure');
+      figure.style.margin = '0';
+      figure.style.padding = '0';
+
+      const img = document.createElement('img');
+      img.alt = item.title || '';
+      img.src = item.src;
+      img.style.display = 'block';
+      img.style.margin = '0 auto';
+
+      figure.appendChild(img);
+
+    if (item.title || item.description) {//写真以外はPDFにする？→PDF埋め込みならPDF.js？→ https://mtrad.co.jp/blog/2026/03/23/post-7993/
+      const caption = document.createElement('figcaption');
+      caption.style.textAlign = 'center';
+      caption.style.padding = '8px';
+      caption.innerHTML = `
+        <strong>${item.title || ''}</strong>
+        <div>
+          プレイ人数: ${item.players ?? '不明'}<br>
+          プレイ時間: ${item.playTime ?? '不明'}<br>
+          勝利条件: ${item.winCondition ?? '不明'}
+        </div>
+        <div>${item.description || ''}</div>
+      `;
+      figure.appendChild(caption);
+
+    }
+
+      li.appendChild(figure);
+      list.appendChild(li);
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', async function () {
+    await renderSlides();
+
+    new Splide('#image-carousel', {
+      type: 'loop',
+      /*heightRatio: 0.75,*/
+      autoplay: true,
+      interval: 5000,
+      pauseOnHover: true,
+      pauseOnFocus: true,
+      resetProgress: false,
+      speed: 2000,
+      easing: 'cubic-bezier(0.25, 0.1, 0.25, 1)',
+      drag: true,
+    }).mount();
+  });
+  </script>
+</html>

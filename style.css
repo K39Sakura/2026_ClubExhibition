@@ -1,0 +1,182 @@
+/* css/style.css */
+body {
+  margin: 0;
+  font-family: sans-serif;
+}
+
+/* チェックボックスを非表示 */
+#sidebar-toggle {
+  display: none;
+}
+
+/* ハンバーガー／クローズアイコン */
+.sidebar-icon {
+  color:#080808;  /* アイコンの色を濡羽色に */
+  position: fixed;
+  top: 15px;
+  left: 20px;
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+  z-index: 1001;
+  /*transition: color 0.0s;*/  /* 色がゆっくり変わる */
+  transition: transform 0.0s;
+}
+
+.sidebar-icon.white-icon {
+  color: #fef4f4;   /* アイコンの色を桜色に */
+}
+
+.sidebar-icon::before {
+  content: "≡";
+  font-size: 32px;
+  line-height: 32px;
+  display: block;
+  text-align: center;
+}
+
+@media screen and (max-width: 768px) {
+  .sidebar-icon::before {
+    font-size: 40px;
+    line-height: 40px;
+  }
+}
+
+@media screen and (max-width: 420px) {
+  .sidebar-icon::before {
+    font-size: 50px;
+    line-height: 50px;
+  }
+}
+
+/* チェックされると「✕」に変える */
+#sidebar-toggle:checked + .sidebar-icon::before {
+  content: "✕";
+  font-size: 40px;
+  line-height: 40px;
+  display: block;
+  text-align: center;
+  color:#080808;  /* アイコンの色を濡羽色に */
+}
+
+/* サイドバー本体 */
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: -100vw;     /* 画面外に完全に隠す */
+  width: 100vw;     /* 画面幅いっぱい */
+  height: 100vh;    /* 画面高さいっぱい */
+  background-color: rgba(185, 185, 185, 0.97);/*銀鼠色*/
+  transition: left 0.3s ease;
+  z-index: 1000;
+  display: grid;
+  place-items: center;  /* 横・縦とも中央揃え */
+}
+
+/* チェックされたらスライドイン */
+#sidebar-toggle:checked ~ .sidebar {
+  left: 0;
+}
+
+/* リスト装飾のリセット */
+.sidebar ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* メニューアイテム */
+.sidebar li {
+  padding: 0.5em 1em;
+  line-height: normal;
+}
+
+.sidebar :last-child ol{
+  margin: auto;
+  margin-bottom: -1em;
+}
+
+/*.sidebar .Exbit_Introduction-menu ol{*/
+  /*line-height: normal;*/
+  /*margin-top: -0.125em;*/
+  /*margin-bottom: -2em;*/
+/*}*/
+
+/* リンクスタイル */
+.sidebar a {
+  text-decoration: none;
+  color: #333;
+}
+
+/*.Exhibit_Introduction-menu*/
+/*{*/
+  /*padding: 0.5em 1em;*/
+  /*margin-top: 0.4rem;*/
+/*}*/
+
+/* summaryのデフォルトマーカーを消す */
+/* Chrome/Safari */
+details > summary::-webkit-details-marker {
+  display: none;
+}
+
+/* Firefox */
+summary::-moz-list-bullet {
+  display: none;
+}
+
+/* summaryの見た目 */
+details > summary{
+  display: inline-flex;
+  align-items: center;    /* 上下中央揃え */
+  cursor: pointer;
+}
+
+details > summary::after {
+  content: '+';
+  display: inline-block;
+  width: 1.2em;
+  height: 1.2em;
+  line-height: 1.2em;
+
+  line-height: 1.2em;          /* テキストを縦方向中央に */
+  text-align: center;          /* テキストを横方向中央に */
+  margin-left: 0.5em;          /* テキストとの隙間 */
+  border: 1px solid #333;      /* 枠線の色・太さ */
+
+  margin-left: 0.5em;                /* テキストとの隙間 */
+  transition: transform 0.2s ease;
+  vertical-align: middle;
+  background-color: rgba(228, 229, 230,0.5);/*白金*/
+}
+
+/* open時 */
+details[open] > summary::after {
+  content: '-';
+  display: inline-block;
+  margin-left: 0.5em;                /* テキストとの隙間 */
+  transition: transform 0.2s ease;
+  vertical-align: middle;
+  background-color: rgba(228, 229, 230,0.5);/*白金*/
+}
+
+.splide__slide img {
+  width: auto;        /* スライドの幅に合わせて画像を広げる */
+  height: 60vh;       /* 縦横比を保ったまま高さを自動調整 */
+  object-fit: contain;  /* はみ出す部分を切り取って表示（必要に応じて） */
+  display: block;
+  margin: 0 auto;
+}
+
+.splide__slide figure {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.splide__slide figcaption {
+  margin-top: 8px;
+  text-align: center;
+  color: #333;
+  font-size: 14px;
+}
