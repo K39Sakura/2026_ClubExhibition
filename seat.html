@@ -53,6 +53,8 @@
     let remainingDesks = 0;                                   // まだ使われていない机の数
     let remainingSeats = 0;                                   // まだ使われていない椅子の数
 
+    let lastUpdatedAt = 0;
+
     function createSeat(id) {
       return { id };
     }
@@ -136,6 +138,9 @@
       } catch (e) {
         console.warn("クラウド読み込み失敗", e);
       }
+      if (parsed.updatedAt) {
+        lastUpdatedAt = parsed.updatedAt;
+      }      
     }    
 
     async function saveData() {
@@ -161,6 +166,22 @@
       const seatStatus = document.getElementById('seatStatus');
       if (deskStatus) deskStatus.textContent = `残り机: ${remainingDesks}`;
       if (seatStatus) seatStatus.textContent = `残り椅子: ${remainingSeats}`;
+    }
+
+    async function checkUpdatedAt() {
+      try {
+        const res = await fetch(CLOUD_URL);
+        const data = await res.json();
+
+        if (data.updatedAt && data.updatedAt !== lastUpdatedAt) {
+          // 更新があった！
+          lastUpdatedAt = data.updatedAt;
+          await loadData();
+          render();
+        }
+      } catch (e) {
+        console.warn("updatedAt チェック失敗", e);
+      }
     }
 
     function render() {
@@ -461,10 +482,7 @@
       render();
     });
     // ===== リアルタイム更新（3秒ごと） =====
-    setInterval(async () => {
-      await loadData();  // クラウドから最新データ取得
-      render();          // 画面に反映
-    }, 3000);
+    setInterval(checkUpdatedAt, 1000);
   </script>
 </body>
 </html>
