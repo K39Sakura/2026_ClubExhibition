@@ -41,34 +41,41 @@ async function resizeImage(file, maxWidth = 1600, maxHeight = 1600) {
 }
 
 // Storage
+const CLOUD_URL = "https://script.google.com/macros/s/AKfycbyk2WBCCB9YxzdnWkxfQAbSOJDB-__mtyeogs0IBsz2Bwzk4On0wUtDYqmbIQ_2aSc/exec";
+
+// クラウドから読み込み
+async function loadGalleryFromCloud() {
+  const res = await fetch(CLOUD_URL);
+  const json = await res.json();
+  return json;
+}
+
+// クラウドへ保存
+async function saveGalleryToCloud(items) {
+  await fetch(CLOUD_URL, {
+    method: "POST",
+    body: JSON.stringify(items),
+  });
+}
+
 function getGallery() {
   try {
-    const items = JSON.parse(localStorage.getItem("galleryItems") || "[]");
-    let changed = false;
-
-    const normalized = items.map(item => {
-      if (item && (item.id === undefined || item.id === null)) {
-        changed = true;
-        return { ...item, id: Date.now() + Math.random() };
-      }
-      return item;
-    });
-
-    if (changed) saveGallery(normalized);
-    return normalized;
+    const items = await loadGalleryFromCloud();
+    return Array.isArray(items) ? items : [];
   } catch (e) {
     return [];
   }
+
 }
 
 function saveGallery(items) {
-  localStorage.setItem("galleryItems", JSON.stringify(items));
+  await saveGalleryToCloud(items);
 }
 
 // Rendering
-function renderList() {
+async function renderList() {
   const list = document.getElementById("items-list");
-  const items = getGallery();
+  const items = await getGallery();
 
   list.innerHTML = "";
 
@@ -107,10 +114,10 @@ function renderList() {
 
   // 削除ボタン
   document.querySelectorAll(".delete-btn").forEach(btn => {
-    btn.addEventListener("click", e => {
+    btn.addEventListener("click", async e => {
       const id = e.currentTarget.getAttribute("data-id");
-      const items = getGallery().filter(it => String(it.id) !== String(id));
-      saveGallery(items);
+      const items = (await getGallery()).filter(it => String(it.id) !== String(id));
+      await saveGallery(items);
       renderList();
     });
   });
@@ -210,7 +217,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }))
       );
 
-      saveGallery(items);
+      await saveGallery(items);
       renderList();
       alert("インポート完了");
     } catch (err) {
