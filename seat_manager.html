@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>席・机管理_責任者用</title>
+  <style>
+    .form-row { display: flex; align-items: center; flex-wrap: wrap; gap: 0.8rem; margin-bottom: 1rem; }
+    input[type="number"] { width: 80px; padding: 0.4rem 0.6rem; border: 1px solid #cfd8dc; border-radius: 4px; }
+    button { border: none; border-radius: 6px; background: #1976d2; color: white; padding: 0.5rem 0.9rem; font-size: 0.95rem; cursor: pointer; transition: background-color 0.2s ease; }
+    button:hover { background: #1358a0; }
+    #status { padding: 0.6rem 0.8rem; background: white; border: 1px solid #dce3e8; border-radius: 6px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08); }
+  </style>
+</head>
+<body>
+  <h2>机と席の管理_責任者用</h2>
+
+  <div class="form-row">
+    <label for="deskCount">合計机数: </label>
+    <input id="deskCount" type="number" min="0" max="200" step="1" value="3">
+    <label for="defaultSeats" style="margin-left:12px;">合計椅子数: </label>
+    <input id="defaultSeats" type="number" min="0" max="500" step="1" value="12">
+    <button id="generateBtn">設定</button>
+    <button id="clearBtn" type="button">全消去</button>
+  </div>
+
+  <div id="status" style="margin-top:12px;color:#333;"></div>
+
+  <script>
+    const STORAGE_KEY = 'club_exhibition_desks';
+    const deskCountInput = document.getElementById('deskCount');
+    const defaultSeatsInput = document.getElementById('defaultSeats');
+    const generateBtn = document.getElementById('generateBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const status = document.getElementById('status');
+
+    function saveState(totalDesks, totalSeats, remainingDesks, remainingSeats, desks = []) {
+      const payload = {
+        totalDesks,
+        totalSeats,
+        remainingDesks,
+        remainingSeats,
+        desks
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    }
+
+    function loadState() {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return null;
+      try {
+        return JSON.parse(raw);
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function refreshStatus() {
+      const state = loadState();
+      if (!state) {
+        status.textContent = '設定なし。まず「設定」をクリックしてください。';
+        return;
+      }
+      deskCountInput.value = Number.isInteger(state.totalDesks) ? state.totalDesks : 0;
+      defaultSeatsInput.value = Number.isInteger(state.totalSeats) ? state.totalSeats : 0;
+      status.textContent = `合計机:${state.totalDesks} (残:${state.remainingDesks})  合計椅子:${state.totalSeats} (残:${state.remainingSeats})  割当済み机:${state.desks?.length || 0}`;
+    }
+
+    generateBtn.addEventListener('click', () => {
+      const totalDesks = Math.max(0, Math.min(200, Number(deskCountInput.value) || 0));
+      const totalSeats = Math.max(0, Math.min(500, Number(defaultSeatsInput.value) || 0));
+      saveState(totalDesks, totalSeats, totalDesks, totalSeats, []);
+      refreshStatus();
+    });
+
+    clearBtn.addEventListener('click', () => {
+      localStorage.removeItem(STORAGE_KEY);
+      deskCountInput.value = 0;
+      defaultSeatsInput.value = 0;
+      status.textContent = 'すべてクリアされました。';
+    });
+
+    window.addEventListener('DOMContentLoaded', () => {
+      refreshStatus();
+    });
+  </script>
+</body>

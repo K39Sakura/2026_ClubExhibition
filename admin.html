@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ボードゲーム管理用</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="test.css">
+  <style>
+    .admin-container{max-width:900px;margin:24px auto;padding:16px}
+    .form-row{margin-bottom:12px}
+    label{display:block;margin-bottom:6px}
+    input[type="text"], textarea{width:100%;padding:8px}
+    img.preview{max-width:220px;display:block;margin-top:8px}
+    .item{border:1px solid #ddd;padding:8px;margin-bottom:8px}
+    .controls{margin-top:12px}
+    button{margin-right:8px}
+  </style>
+</head>
+<body>
+  <h2>ボードゲーム情報入力</h2>
+  <div class="admin-container">
+    <form id="add-form">
+      <div class="form-row">
+        <label>画像ファイル</label>
+        <input id="file-input" type="file" accept="image/*" required>
+        <img id="preview" class="preview" src="" alt="preview" style="display:none">
+      </div>
+      <div class="form-row">
+        <label>ゲームタイトル</label>
+        <input id="title" type="text" placeholder="ゲームタイトルを入力 (かぎかっこなどをつけない)">
+      </div>
+      <div class="form-row">
+        <label>プレイ人数</label>
+        <input id="players" type="text" placeholder="プレイ人数を入力 (例: 2-10人)">
+      </div>
+      <div class="form-row">
+        <label>プレイ時間</label>
+        <input id="playTime" type="text" placeholder="プレイ時間を入力 (例: 30-60分)">
+      </div>
+      <div class="form-row">
+        <label>ゲームの勝利条件</label>
+        <input id="winCondition" type="text" placeholder="ゲームの勝利条件を入力">
+      </div>
+      <div class="form-row">
+        <label>説明</label>
+        <textarea id="description" rows="5" placeholder="説明を入力"></textarea>
+      </div>
+      <div class="controls">
+        <button id="save-btn" type="submit">保存（ブラウザ）</button>
+        <button id="clear-btn" type="button">フォームをクリア</button>
+      </div>
+    </form>
+
+    <hr>
+    <h3>現在のギャラリー</h3><!-- ローカルストレージではなくサーバー保管にすべき -->
+    <div>
+      <!--<button id="export-btn">エクスポート (JSON)</button>-->
+      <input id="import-file" type="file" accept="application/json" style="display:inline-block">
+      <button id="clear-storage-btn" style="margin-left:10px; background-color:#f44336; color:white; border:none; padding:8px 12px; border-radius:4px; cursor:pointer;">全ローカルストレージをクリア</button>
+    </div>
+    <div id="items-list" style="margin-top:12px"></div>
+    <p style="margin-top:18px;color:#666">※ この管理画面はクライアント側で動作します。データはブラウザのlocalStorageに保存されます。</p>
+  </div>
+
+  <script src="admin.js"></script>
+  <script>
+    document.getElementById('clear-storage-btn').addEventListener('click', function() {
+      if (confirm('全ローカルストレージのデータを削除しますか？')) {
+        localStorage.clear();
+        alert('全ローカルストレージをクリアしました。ページをリロードします。');
+        location.reload();
+      }
+    });
+  </script>
+</body>
+</html>

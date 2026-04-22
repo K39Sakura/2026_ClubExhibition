@@ -1,0 +1,295 @@
+h1 {
+  font-family: 'Noto Serif JP', serif;
+  color: black;
+  font-size:100px;
+  text-align: center;
+}
+
+h2{
+  color: black;
+  font-size:30px;
+  text-align: center;
+}
+
+h3{
+  color: black;
+  font-size:25px;
+  text-align: center;
+}
+
+p{
+  color: black;
+  font-size:20px;
+  text-align: center;
+}
+
+
+ol{
+  list-style-type: none;
+  margin: 10px 0;             /* 上下の余白 */
+  padding: 5px 10px;          /* 内側の余白 */
+  /*background-color: (#f0f0f0,0.0);*/  /* 背景色 */
+  /*border-radius: 8px;*/         /* 角丸 */
+  transition: background-color 0.3s ease;
+  font-size: 20px;
+}
+
+li {
+  /*list-style-type: none;*/      /* 点（●）などのマーカーを消す */
+  margin: 10px 0;             /* 上下の余白 */
+  padding: 5px 10px;          /* 内側の余白 */
+  /*background-color: (#f0f0f0,0.0);*/  /* 背景色 */
+  /*border-radius: 8px;*/         /* 角丸 */
+  transition: background-color 0.3s ease;
+  font-size: 20px;
+}
+
+/*li:hover {*/
+  /*background-color:#fff; */ /* ホバー時の色変化 */
+  /*opacity: 0.6;*/ /* 60%表示にすることで薄くなる印象に */
+  /*background-color: rgba(214, 214, 214, 0.8);*/
+/*}*/
+
+
+.field {
+  display: flex;
+  justify-content: space-around;
+}
+
+/*body.top {
+  overflow: hidden;
+}*/
+
+.adaptive-img {
+  width: 30%;
+  height: auto;
+}
+
+@media screen and (max-width: 768px) {
+  h1 {
+    font-family: 'Noto Serif JP', serif;
+    color: black;
+    font-size:100px;
+    text-align: center;
+  }
+
+  h2{
+    color: black;
+    font-size:30px;
+    text-align: center;
+  }
+
+  h3{
+    color: black;
+    font-size:25px;
+    text-align: center;
+  }
+
+  p{
+    color: black;
+    font-size:45px;
+    text-align: center;
+  }
+
+  .adaptive-img {
+    width: 70%;
+    height: auto;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  h1 {
+    font-family: 'Noto Serif JP', serif;
+    color: black;
+    font-size:40px;
+    text-align: center;
+  }
+
+  h2{
+    color: black;
+    font-size:25px;
+    text-align: center;
+  }
+
+  h3{
+    color: black;
+    font-size:20px;
+    text-align: center;
+  }
+
+  p{
+    color: black;
+    font-size:16px;
+    text-align: center;
+  }
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow-y: scroll;
+  scroll-snap-type: y mandatory; /* 縦方向に画面単位スクロール */
+  scroll-behavior: smooth;
+}
+
+.page {
+  height: 100vh; /* 1画面分の高さ */
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+/* カスタム背景やスタイル調整もここで */
+.header-page {
+  /*margin: 0;*/
+  /*padding: 10px;*/ /* 上下に少しだけ余白を残す */
+  /*background-image: url("photo/background7.png");*/
+  background-size: cover;       /* 画像をヘッダー全体にフィットさせる */
+  background-position: center;  /* 中央に配置 */
+  background-repeat: no-repeat; /* 繰り返しなし */
+  min-height: 300px;            /* ヘッダーの高さを調整 */
+}
+
+.content-page {
+  background-color: #f6f6f6;/*銀白色*//*月白色*f6f7f8?*/
+  color: #333;
+  padding: 30px;
+}
+
+.pages {
+  background-color: #f6f6f6;
+}
+
+.map-container {
+  text-align: center;
+}
+
+@media screen and (max-width: 480px) {
+  .map-container {
+    width: 100%;
+    height: 300px;
+  }
+}
+
+.image-overlay{
+  width:600px;
+  height: 600px;
+  position: relative;
+}
+.container img{
+  width:100%;
+}
+.container h2{
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+x-sign {
+  --interval: 1s;
+  display: block;
+  text-shadow: 
+    0 0 10px var(--color1),
+    0 0 20px var(--color2),
+    0 0 40px var(--color3),
+    0 0 80px var(--color4);
+  will-change: filter, color;
+  filter: saturate(60%);
+  animation: flicker steps(100) var(--interval) 1s infinite;
+}
+
+x-sign:nth-of-type(1) {
+  color: rgba(255, 255, 255, 0.3);
+  --color1: rgba(255, 255, 255, 0.3);
+  --color2: rgba(255, 255, 255, 0.3);
+  --color3: rgba(255, 255, 255, 0.3);
+  --color4: rgba(255, 255, 255, 0.3);
+  font-family: Gruppo;
+}
+
+@keyframes flicker {
+  50% {
+    color: white;
+    filter: saturate(200%) hue-rotate(20deg);
+  }
+}
+
+.box {
+  position: relative;
+  margin: 2em 0;
+  padding: 0.5em 1em;
+  width: 75%; /* 親要素に対して80%の幅 */
+  margin: 2em auto; /* 左右中央揃え */
+}
+.box .box-title {
+  position: absolute;
+  display: inline-block;
+  top: -27px;
+  left: -3px;
+  padding: 0 9px;
+  height: 25px;
+  line-height: 25px;
+  font-size: 17px;
+  color: #ffffff;
+  font-weight: bold;
+  border-radius: 5px 5px 0 0;
+}
+.box p {
+  margin: 0; 
+  padding: 0;
+}
+
+@media (prefers-color-scheme: dark) {
+  .dark-only {
+    display: block; /* または flex など、表示させたいスタイル */
+  }
+
+  .light-only {
+    display: none;
+  }
+}
+
+@media (prefers-color-scheme: light) {
+  .dark-only {
+    display: none;
+  }
+
+  .light-only {
+    display: block; /* または flex など、表示させたいスタイル */
+  }
+}
+
+.parent {
+  text-align: center;
+}
+
+.balloon {
+  position: relative;
+  display: inline-block;
+  margin: 1.5em 0;
+  padding: 7px 10px;
+  min-width: 120px;
+  max-width: 100%;
+  color: #555;
+  font-size: 16px;
+  background: #e0edff;
+  border-radius: 50%;
+}
+
+.balloon:before {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-left: -15px;
+  border: 15px solid transparent;
+  border-top: 15px solid #e0edff;
+}
+
+.balloon p {
+  margin: 0;
+  padding: 0;
+}
