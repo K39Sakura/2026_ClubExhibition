@@ -6,31 +6,36 @@
   <title>席・机管理</title>
   <style>
     .form-row { display: flex; align-items: center; flex-wrap: wrap; gap: 0.8rem; margin-bottom: 1rem; }
-    button { border: none; border-radius: 6px; background: #1976d2; color: white; padding: 0.5rem 0.9rem; font-size: 0.95rem; cursor: pointer; transition: background-color 0.2s ease; }
-    button:hover { background: #145a9e; }
+    button { border: none; border-radius: 6px; background: #1F487E; color: white; padding: 0.6rem 1.2rem; writing-mode: horizontal-tb; font-size: 0.95rem; cursor: pointer; transition: background-color 0.2s ease; }
+    button:hover { background: #1D3461; }
     .form-row span { font-weight: 600; color: #212121; }
     #message { min-height: 1.4rem; margin-top: 0.5rem; color: #bf360c; }
     #desks { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0.9rem; margin-top: 1rem; }
     .desk-card { background: white; border-radius: 8px; border: 1px solid #dce3e8; box-shadow: 0 2px 6px rgba(30, 80, 115, 0.08); padding: 0.8rem; }
     .desk-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.7rem; }
     .desk-controls { display: flex; align-items: center; gap: 0.5rem; font-size: 0.86rem; }
-    .seat-list { margin: 0; padding: 0.5rem; list-style: none; display: grid; grid-template-columns: repeat(auto-fill,minmax(50px,1fr)); gap: 0.45rem; min-height: 42px; background:#f7fbff; border:1px dashed #b2cfe7; border-radius:6px; }
+    .seat-list { background:#e8f4ff;margin: 0; padding: 0.5rem; list-style: none; display: grid; grid-template-columns: repeat(auto-fill,minmax(50px,1fr)); gap: 0.45rem; min-height: 42px; background:#f7fbff; border:1px dashed #b2cfe7; border-radius:6px; }
     .seat-item { background:#e8f4ff; border:1px solid #90aebf; border-radius:4px; padding:4px 6px; text-align:center; font-size:0.82rem; cursor:pointer; user-select:none; }
     .seat-item.dragging { opacity:0.4; }
     .seat-item.drag-over { border-color:#0288d1; background:#d3efff; }
-    .desk-card.free { border-color:#7ccb80; border-width: 2px;}
-    .desk-card.occupied { border-color:#ff0000; border-width: 2px; }
+    .desk-card.free { background: #AED9E0;border-color:#37718E; border-width: 2px;}
+    .desk-card.occupied { background: #FFA69E; border-color:#C33C54; border-width: 2px; }
+    #refreshBtn {border: none;border-radius: 6px;background: #d31733;color: white;padding: 0.6rem 1.2rem; font-size: 0.95rem;  font-weight: 600;  cursor: pointer;  transition: background-color 0.2s ease;}
+    #refreshBtn:hover {background: #A31621;}
   </style>
 </head>
-<body>
+<body style="background-color: #CED3DC;">
   <h2>机と席の管理</h2>
   <div class="form-row">
     <button id="addDeskBtn" type="button">机を追加</button>
     <span id="deskStatus">残り机: 0</span>
     <button id="addSeatBtn" type="button">椅子を追加</button>
     <span id="seatStatus">残り椅子: 0</span>
+    <button id="refreshBtn">更新</button>
   </div>
-  <div>椅子はダブルクリックで削除（プールに戻る）。ドラッグ＆ドロップで机間移動可能。</div>
+  <div>椅子はダブルクリックで削除（プールに戻る）。<br>ドラッグ＆ドロップで机間移動可能。</div>
+  <div>変更があった場合、ブラウザの再読み込みボタン、F5ではなく<strong>更新ボタン</strong>をクリックしてください。</div>
+  <div>結構ラグいので3回くらいゆっくり押してあげてください。</div>
 
   <div id="message" role="status" aria-live="polite"></div>
 
@@ -94,11 +99,6 @@
       });
     }    
 
-    /**
-     * 机の椅子数を0～50の範囲に調整する
-     * @param {Object} desk - 机オブジェクト
-     * @param {number} desiredCount - 希望する椅子数
-     */
     function adjustDeskSeats(desk, desiredCount) {
       desiredCount = Number.isInteger(desiredCount) ? desiredCount : 0;
       desk.seatCount = Math.max(0, Math.min(50, desiredCount));
@@ -163,6 +163,11 @@
       if (seatStatus) seatStatus.textContent = `残り椅子: ${remainingSeats}`;
     }
 
+    document.getElementById("refreshBtn").addEventListener("click", () => {
+      //location.reload();
+      renderDesks();
+    });
+
     function render() {
       // 入力フィールドに値を反映
       if (deskCountInput) deskCountInput.value = totalDesks;
@@ -172,7 +177,7 @@
       
       // 机がない場合はメッセージを表示
       if (desks.length === 0) {
-        desksEl.innerHTML = '<p>机がありません。追加ボタンで机を追加してください。</p>';
+        //desksEl.innerHTML = '<p>机がありません。追加ボタンで机を追加してください。</p>';
         updateStatus();
         return;
       }
@@ -199,10 +204,10 @@
         statusBtn.style.marginRight = '8px';
         statusBtn.addEventListener('click', () => setDeskStatus(desk.id));
 
-        // 操作ボタン（椅子追加、機削除）
+        // 操作ボタン（椅子追加、削除）
         const controls = document.createElement('span');
         controls.className = 'desk-controls';
-        controls.innerHTML = `椅子: ${desk.seatCount} <button type="button" data-desk-id="${desk.id}" class="add-seat">＋椅子</button> <button data-desk-id="${desk.id}" class="delete-desk">削除</button>`;
+        controls.innerHTML =`<button data-desk-id="${desk.id}" class="delete-desk">削除</button>`;
 
         header.appendChild(title);
         header.appendChild(statusBtn);
@@ -323,15 +328,11 @@
         btn.addEventListener('click', e => {
           const deskId = e.currentTarget.dataset.deskId;
           if (remainingSeats <= 0) {
-            message.textContent = '残り椅子がありません。';
+            //message.textContent = '残り椅子がありません。';
             return;
           }
           const desk = desks.find(d => d.id === deskId);
           if (!desk) return;
-          if (desk.seats.length >= 50) {
-            message.textContent = '1机あたり椅子は最大50です。';
-            return;
-          }
           const newSeat = createSeat(`${desk.name}-seat-${desk.seats.length + 1}`);
           desk.seats.push(newSeat);
           desk.seatCount = desk.seats.length;
@@ -390,7 +391,7 @@
       addDeskBtn.addEventListener('click', () => {
         message.textContent = '';
         if (remainingDesks <= 0) {
-          message.textContent = '残り机がありません。';
+          //message.textContent = '残り机がありません。';
           return;
         }
         const newDeskId = desks.length + 1;
@@ -406,16 +407,16 @@
       addSeatBtn.addEventListener('click', () => {
         message.textContent = '';
         if (remainingSeats <= 0) {
-          message.textContent = '残り椅子がありません。';
+          //message.textContent = '残り椅子がありません。';
           return;
         }
         if (desks.length === 0) {
-          message.textContent = '先に机を追加してください。';
+          //message.textContent = '先に机を追加してください。';
           return;
         }
         const targetDesk = desks[desks.length - 1];
         if (targetDesk.seats.length >= 50) {
-          message.textContent = 'この机の椅子は最大です。';
+          //message.textContent = 'この机の椅子は最大です。';
           return;
         }
         targetDesk.seats.push(createSeat(`${targetDesk.name}-seat-${targetDesk.seats.length + 1}`));
@@ -438,7 +439,7 @@
         render();
       });
     }
-
+    
     // ===== ページ読み込み時 =====
     window.addEventListener('DOMContentLoaded', async () => {
 
@@ -464,7 +465,7 @@
     setInterval(async () => {
       await loadData();  // クラウドから最新データ取得
       render();          // 画面に反映
-    }, 3000);
+    }, 2000);
   </script>
 </body>
 </html>
