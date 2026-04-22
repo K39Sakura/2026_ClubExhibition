@@ -460,6 +460,11 @@
       // 画面に反映
       render();
     });
+    // ===== リアルタイム更新（3秒ごと） =====
+    setInterval(async () => {
+      await loadData();  // クラウドから最新データ取得
+      render();          // 画面に反映
+    }, 3000);
   </script>
 </body>
 </html>
