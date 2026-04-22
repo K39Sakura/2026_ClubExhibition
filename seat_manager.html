@@ -67,8 +67,8 @@
         return;
       }
 
-      deskCountInput.value = Number.isInteger(state.totalDesks) ? state.totalDesks : 0;
-      defaultSeatsInput.value = Number.isInteger(state.totalSeats) ? state.totalSeats : 0;
+      deskCountInput.value = state.totalDesks;
+      defaultSeatsInput.value = state.totalSeats;
 
       status.textContent =
         `合計机:${state.totalDesks} (残:${state.remainingDesks})  ` +
