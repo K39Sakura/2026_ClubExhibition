@@ -440,9 +440,12 @@
     }
 
     // ===== ページ読み込み時 =====
-    window.addEventListener('DOMContentLoaded', () => {
-      loadData();
-      // 前のデータがない場合は初期化
+    window.addEventListener('DOMContentLoaded', async () => {
+
+      // クラウドから読み込み
+      await loadData();
+
+      // クラウドにデータが全くない場合だけ初期化
       if (desks.length === 0 && remainingDesks === 0 && remainingSeats === 0) {
         if (deskCountInput && defaultSeatsInput) {
           totalDesks = Number(deskCountInput.value);
@@ -450,9 +453,11 @@
           remainingDesks = totalDesks;
           remainingSeats = totalSeats;
           desks = [];
-          saveData();
+          await saveData();   // ← クラウドに初期データ保存
         }
       }
+
+      // 画面に反映
       render();
     });
   </script>
