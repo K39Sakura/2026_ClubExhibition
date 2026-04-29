@@ -188,27 +188,6 @@ html, body {
   left: 0;
 }
 
-x-sign {
-  --interval: 1s;
-  display: block;
-  text-shadow: 
-    0 0 10px var(--color1),
-    0 0 20px var(--color2),
-    0 0 40px var(--color3),
-    0 0 80px var(--color4);
-  will-change: filter, color;
-  filter: saturate(60%);
-  animation: flicker steps(100) var(--interval) 1s infinite;
-}
-
-x-sign:nth-of-type(1) {
-  color: rgba(255, 255, 255, 0.3);
-  --color1: rgba(255, 255, 255, 0.3);
-  --color2: rgba(255, 255, 255, 0.3);
-  --color3: rgba(255, 255, 255, 0.3);
-  --color4: rgba(255, 255, 255, 0.3);
-  font-family: Gruppo;
-}
 
 @keyframes flicker {
   50% {
@@ -217,29 +196,27 @@ x-sign:nth-of-type(1) {
   }
 }
 
+.box-row{
+  display: flex;
+  justify-content: center; /* 中央揃え */
+}
 .box {
   position: relative;
-  margin: 2em 0;
-  padding: 0.5em 1em;
-  width: 75%; /* 親要素に対して80%の幅 */
-  margin: 2em auto; /* 左右中央揃え */
-}
-.box .box-title {
-  position: absolute;
   display: inline-block;
-  top: -27px;
-  left: -3px;
-  padding: 0 9px;
-  height: 25px;
-  line-height: 25px;
-  font-size: 17px;
-  color: #ffffff;
-  font-weight: bold;
-  border-radius: 5px 5px 0 0;
+  margin: 20px;
+  padding: 20px;
 }
-.box p {
-  margin: 0; 
-  padding: 0;
+
+@media screen and (max-width: 768px) {
+  .box-row {
+    flex-direction: column; /* 縦並びに変更 */
+    align-items: center;    /* 中央揃え */
+  }
+
+  .box {
+    margin: 10px 0; /* 上下の余白を減らす */
+  }
+  
 }
 
 @media (prefers-color-scheme: dark) {

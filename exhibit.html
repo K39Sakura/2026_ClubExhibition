@@ -38,21 +38,18 @@
         <h3>展示内容</h3>
         <p>苫小牧高専卓上ゲーム同好会では、様々な卓上ゲームを展示します。<br>展示内容の詳細は以下のPDFをご覧ください。</p>
       </section>
-      <div class="game-item">
-        <ul>
-          <li><a href="https://K39Sakura.github.io/2026_ClubExhibition/pdf/卓上ゲームマニュアル_SCOUT.pdf" target="_blank">
-            <img src="photo/IMG_1.JPG" alt="ゲーム1" class="game-thumb" style="height: 5cm;width: 5cm;display: flex;">
-          </a></li>
-          <!-- <p>SCOUT</p> -->
-          <li><a href="https://K39Sakura.github.io/2026_ClubExhibition/pdf/卓上ゲームマニュアル_SCOUT.pdf" target="_blank">
+      <div class="box-row">
+          <div class="box">
+            <a href="pdf\卓上ゲームマニュアル_SCOUT.pdf" target="_blank">
+            <img src="photo/IMG_1.JPG" alt="ゲーム1" class="game-thumb" style="height: 5cm;width: 5cm;display: flex;"><p>SCOUT</p></a>
+          </div>
+          
+          <div class="box"><a href="pdf\卓上ゲームマニュアル_SCOUT.pdf" target="_blank">
             <img src="photo/IMG_1.JPG" alt="ゲーム1" class="game-thumb" style="height: 5cm;width: 5cm; display: flex;">
-          </a></li>
-          <!-- <p>SCOUT</p> -->
-          <li><a href="https://K39Sakura.github.io/2026_ClubExhibition/pdf/卓上ゲームマニュアル_SCOUT.pdf" target="_blank">
+          </a></div>
+          <div class="box"><a href="pdf\卓上ゲームマニュアル_SCOUT.pdf" target="_blank">
             <img src="photo/IMG_1.JPG" alt="ゲーム1" class="game-thumb" style="height: 5cm;width: 5cm; display: flex;">
-          </a></li>
-        <!-- <p>SCOUT</p> -->
-        </ul>
+          </a></div>
 
       </div>
     </main>
@@ -63,61 +60,7 @@
     const list = document.getElementById('splide-list');
     list.innerHTML = '';
 
-    const defaultItems = [];
-
-    if (!localStorage.getItem('galleryItems')) {
-      localStorage.setItem('galleryItems', JSON.stringify(defaultItems));
-    }
-
-    const stored = JSON.parse(localStorage.getItem('galleryItems') || '[]');
-    const fallback = defaultItems;
-
-    let serverItems = [];
-    try {
-      const resp = await fetch('/api/gallery');
-      if (resp.ok) serverItems = await resp.json();
-    } catch (e) {}
-
-    const items = serverItems.concat(stored).concat(fallback);
-
-    items.forEach(item => {
-      const li = document.createElement('li');
-      li.className = 'splide__slide';
-
-      const figure = document.createElement('figure');
-      figure.style.margin = '0';
-      figure.style.padding = '0';
-
-      const img = document.createElement('img');
-      img.alt = item.title || '';
-      img.src = item.src;
-      img.style.display = 'block';
-      img.style.margin = '0 auto';
-
-      figure.appendChild(img);
-
-    if (item.title || item.description) {//写真以外はPDFにする？→PDF埋め込みならPDF.js？→ https://mtrad.co.jp/blog/2026/03/23/post-7993/
-      const caption = document.createElement('figcaption');
-      caption.style.textAlign = 'center';
-      caption.style.padding = '8px';
-      caption.innerHTML = `
-        <strong>${item.title || ''}</strong>
-        <div>
-          プレイ人数: ${item.players ?? '不明'}<br>
-          プレイ時間: ${item.playTime ?? '不明'}<br>
-          勝利条件: ${item.winCondition ?? '不明'}
-        </div>
-        <div>${item.description || ''}</div>
-      `;
-      figure.appendChild(caption);
-
-    }
-
-      li.appendChild(figure);
-      list.appendChild(li);
-    });
   }
-
   document.addEventListener('DOMContentLoaded', async function () {
     await renderSlides();
 
