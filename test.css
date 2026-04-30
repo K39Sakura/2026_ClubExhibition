@@ -151,6 +151,33 @@ html, body {
   background-position: center;  /* 中央に配置 */
   background-repeat: no-repeat; /* 繰り返しなし */
   min-height: 300px;            /* ヘッダーの高さを調整 */
+  background-attachment:fixed;
+  background-Image:url("photo/IMG_0.png");
+}
+
+.overlay {
+  background-color: rgba(255, 255, 255, 0.45); /* 半透明の白 */
+  background-size: cover; 
+  background-position: center;
+  background-repeat: no-repeat;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;  
+}
+
+.logo{
+  background: linear-gradient(135deg, rgba(255, 21, 40, 0.8), rgb(255, 135, 36)); /* 赤と白のグラデーション */
+  /* background-color: rgba(232, 56, 13, 0.75); */
+  background-size: cover; 
+  background-position: center;
+  background-repeat: no-repeat;
+  width: 85%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;  
 }
 
 .content-page {
@@ -270,3 +297,8 @@ html, body {
   margin: 0;
   padding: 0;
 }
+
+.vertical {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+}  
