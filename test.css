@@ -164,7 +164,7 @@ html, body {
 
 .overlay {
   scroll-snap-align: start;
-  background-color: rgba(0, 0, 0, 0.753); /* 半透明*/
+  background-color: rgba(0, 0, 0, 0.7); /* 半透明*/
   /* backdrop-filter: blur(2px); ぼかし */
 
   width: 90%;
@@ -333,7 +333,7 @@ html, body {
   width: 100%;
   height: 100%;
   display: flex;
-  background: rgba(0, 0, 0, 0.7); /* 黒いレイヤー */
+  background: rgba(0, 0, 0, 1); /* 黒いレイヤー */
   justify-content: center;
   align-items: center;
 }
