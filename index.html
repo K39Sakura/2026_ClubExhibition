@@ -9,49 +9,84 @@
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="test.css">
 
+    <!-- SplideのCSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@splidejs/splide@4.1.4/dist/css/splide.min.css">
+
+    <!-- SplideのJavaScript -->
+    <script src="https://cdn.jsdelivr.net/npm/@splidejs/splide@4.1.4/dist/js/splide.min.js"></script>
     <title>TmNCT卓上ゲーム同好会2026</title>
 </head>
 <body class="top">
 
-    <!-- トグル用チェックボックス -->
-    <input type="checkbox" id="sidebar-toggle" aria-label="Toggle menu">
+  <!-- トグル用チェックボックス -->
+  <input type="checkbox" id="sidebar-toggle" aria-label="Toggle menu">
 
-    <!-- サイドバー開閉アイコン -->
-    <label for="sidebar-toggle" class="sidebar-icon" role="button"></label>
+  <!-- サイドバー開閉アイコン -->
+  <label for="sidebar-toggle" class="sidebar-icon" role="button">
+    <!-- ハンバーガーアイコン -->
+    <svg class="icon menu" viewBox="0 0 24 24">
+      <path d="M3 6h18M3 12h18M3 18h18" />
+    </svg>
 
-    <!-- サイドバー本体 -->
-    <nav class="sidebar">
+    <!-- クローズアイコン -->
+    <svg class="icon close" viewBox="0 0 24 24">
+      <path d="M6 6l12 12M18 6l-12 12" />
+    </svg>
+  </label>
+
+  <!-- サイドバー本体 -->
+  <nav class="sidebar">
     <ol>
-        <li><a href="index.html" style="font-size: 20px;">TOP</a></li>
-        <li><a href="exhibit.html" style="font-size: 20px;">展示紹介</a></li>
-        <li><a href="survey.html" style="font-size: 20px;">アンケート</a></li>
+      <li><a href="index.html" style="font-size: 20px;">TOP</a></li>
+      <li><a href="exhibit.html" style="font-size: 20px;">展示紹介</a></li>
+      <li><a href="survey.html" style="font-size: 20px;">アンケート</a></li>
     </ol>
-    </nav>
+  </nav>
 
-    <!-- ヘッダー -->
-    <header class="page header-page" id="page-header">
-      <!-- <div class="overlay"> 画像の上に重ねるオーバーレイ -->
-        <div class="logo">
-          <h1 class = "vertical" style="font-size:90px; color: #000000; line-height: 24px;">＠学校祭展示</h1>  
-          <h1 class = "vertical" style="font-size:90px; color: #000000; line-height: 24px;">卓上ゲーム同好会<br></h1>
-        </div>
-      <!-- </div> -->
-    </header>
+  <!-- ヘッダー -->
+  <header class="page header-page" id="page-header">
+    <div class="cutout-wrapper">
+      <div class="cutout-text">
+        Board Game Club
+        Exhibition at the 2026 School Festival !!
+      </div>
+    </div>
+  </header>
 
   <main>
   <!-- コンテンツ -->
-    <div class="page content-page">
-      <section>
-        <h3>展示場所</h3>
-        <p>苫小牧工業高等専門学校<br>北海道苫小牧市字錦岡443番地</p>
-        <br>
-      </section>
-      <section><!--空席状況-->
-        <h3>現在の空席状況</h3>
-        <p id="seat-status">現在の空席状況: <span id="status-text">不明</span></p>  <!-- seat.htmlの内容を表示？ -->
-      </section>
+    <div class="page content-page ">
+      <div class="overlay">
+        <section>
+          <h3 style="color: #ffffff;">展示場所</h3>
+          <p style="color: #ffffff;">苫小牧工業高等専門学校<br>北海道苫小牧市字錦岡443番地</p>
+        </section>
+        <section><!-- 空席状況 -->
+          <h3 style="color: #ffffff;">現在の空席状況</h3>
+          <p id="seat-status" style="color: #ffffff;">現在の空席状況: <span id="status-text">不明</span></p>  <!-- seat.htmlの内容を表示？ -->
+        </section>
+        <section>
+          <h3 style="color: #ffffff;">展示内容</h3>
+            <div id="image-carousel" class="splide" aria-label="展示画像カルーセル">
+              <div class="splide__track">
+                <ul class="splide__list">
+                  <li class="splide__slide">
+                    <img src="photo/IMG_1.JPG" alt="展示画像1">
+                  </li>
+                  <li class="splide__slide">
+                    <img src="photo/IMG_2.JPG" alt="展示画像1">
+                  </li>
+                </ul>
+              </div>
+            </div>
+        </section>
+      </div>
     </div>
   </main>
-
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      new Splide('#image-carousel', {type: 'loop'}).mount();
+    });
+  </script>
 </body>
 </html>
