@@ -62,8 +62,8 @@
           <p style="color: #ffffff;">苫小牧工業高等専門学校<br>北海道苫小牧市字錦岡443番地</p>
         </section>
         <section><!-- 空席状況 -->
-          <h3 style="color: #ffffff;">現在の空席状況</h3>
-          <p id="seat-status" style="color: #ffffff;">現在の空席状況: <span id="status-text">不明</span></p>  <!-- seat.htmlの内容を表示？ -->
+          <h3 style="color: #ffffff;">現在の席状況</h3>
+          <p id="seat-status" style="color: #ffffff;">現在の席状況: <span id="status-text">不明</span></p>  <!-- seat.htmlの内容を表示？ -->
         </section>
         <section>
           <h3 style="color: #ffffff;">展示内容</h3>
@@ -84,8 +84,54 @@
     </div>
   </main>
   <script>
+    const CLOUD_URL = "https://script.google.com/macros/s/AKfycbwZDawi8TC3dBhZqMEACrGEk2GnwVPqa8djNbCMCsPRX8evpzeBYaUZo8gJo8j75ek/exec";
+
+    async function loadSeatStatus() {
+      try {
+        const res = await fetch(CLOUD_URL);
+        const data = await res.json();
+        
+        if (data && data.remainingSeats !== undefined && data.totalSeats !== undefined) {
+          const statusText = document.getElementById('status-text');
+          if (statusText) {
+            // 使用中の机に置かれている椅子数を分子として計算
+            const occupiedSeats = data.occupiedSeats || 0;
+            const percentage = data.totalSeats > 0 
+              ? Math.round((occupiedSeats / data.totalSeats) * 100) 
+              : 0;
+              if (percentage >= 100) {
+                statusText.innerHTML = "現在満席です<br>( TДT)ｺﾞﾒﾝﾖｰ ";
+                statusText.style.color = "red"; // 満席の場合は赤色にする
+                return;
+              } else {
+                // statusText.textContent = `${percentage}%`;
+                statusText.textContent = `使用率: ${percentage}% / 残り ${data.totalSeats - occupiedSeats} 席`;
+              }
+
+              if (percentage < 50) {
+                statusText.style.color = "white"; // 白色
+              } else if (percentage < 80) {
+                statusText.style.color = "gold";   // 黄色
+              } else {
+                statusText.style.color = "orange"; // オレンジ
+              }
+
+            // statusText.textContent = `${percentage}%`;
+          }
+        }
+      } catch (e) {
+        console.warn("空席状況の読み込み失敗", e);
+      }
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
       new Splide('#image-carousel', {type: 'loop'}).mount();
+      
+      // 空席状況を読み込み
+      loadSeatStatus();
+      
+      // 5秒ごとに更新
+      setInterval(loadSeatStatus, 5000);
     });
   </script>
 </body>
