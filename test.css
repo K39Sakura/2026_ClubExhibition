@@ -205,10 +205,16 @@ html, body {
   background-repeat: no-repeat; /* 繰り返しなし */
   min-height: 300px;            /* ヘッダーの高さを調整 */
   background-attachment:fixed;
-  background-image: url("photo/IMG_0.png");
+  background-image: url("photo/IMG_0_1.png");
   position: relative;
   color: #333;
   padding: 30px;
+}
+
+@media screen and (max-width: 768px) {
+  .content-page {
+    background-image: url("photo/IMG_0.png");
+  }
 }
 
 /* .pages {
@@ -345,12 +351,14 @@ html, body {
   font-weight: 900; */
   /* color: rgb(255, 255, 255); */
   /* mix-blend-mode: difference; くり抜き */
-  font-size:10vh;
+  font-size:17vh;
   font-weight: 900;
   padding: 20px 40px;
   margin-left: 5vw;
   margin-right: 5vw;
   color: transparent;
+  /* color: rgba(255, 255, 255, 0.25); */
+  /* transform: rotate(7deg); */
   background-image: url('photo/IMG_0_1.png');
   background-size: cover;
   background-position: center;
@@ -362,11 +370,20 @@ html, body {
 
 @media screen and (max-width: 768px) {
   .cutout-text{
-    font-size: 8vh;
+    font-size: 9vh;
     background-image: url('photo/IMG_0.png');
     background-size: cover;
     background-position: center;
   }
+}
+
+@media screen and (max-width: 1024px) {
+  .cutout-text{
+    font-size: 9vh;
+    background-size: cover;
+    background-position: center;
+  }
+  
 }
 
 /* #image-carousel {
