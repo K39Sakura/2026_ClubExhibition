@@ -139,11 +139,17 @@
     }    
 
     async function saveData() {
+      // 使用中の机に置かれている椅子の数を計算
+      const occupiedSeats = desks
+        .filter(d => d.status === 'occupied')
+        .reduce((sum, d) => sum + d.seats.length, 0);
+
       await saveDesksToCloud({
         totalDesks,
         totalSeats,
         remainingDesks,
         remainingSeats,
+        occupiedSeats,  // 使用中の机の椅子数を追加
         desks
       });
     }
