@@ -160,6 +160,34 @@ html, body {
   background-attachment:fixed;
   background-Image:url("photo/IMG_0_1.png");
   position: relative;
+  z-index: 0;
+  overflow: hidden; /* 画像のはみ出し防止 */
+  background: none !important; /* 元の背景指定をリセット */
+}
+
+/* 背景専用の固定レイヤー */
+.header-page::before, .content-page::before {
+  content: "";
+  position: fixed; /* 画面に対して固定 */
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: -1; /* コンテンツの下に配置 */
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-image: url("photo/IMG_0_1.png");
+  /* Safari */
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+/* --- スマホ用の画像切り替え --- */
+@media screen and (max-width: 768px) {
+  .header-page::before, .content-page::before {
+    background-image: url("photo/IMG_0.png");
+  }
 }
 
 .overlay {
@@ -167,7 +195,7 @@ html, body {
   background-color: rgba(0, 0, 0, 0.7); /* 半透明*/
   /* backdrop-filter: blur(2px); ぼかし */
 
-  width: 90%;
+  width: 100%;
   padding: 30px 0; /* 上下に余白をつけて見やすくする */
   
   display: flex;
