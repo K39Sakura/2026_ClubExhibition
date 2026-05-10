@@ -418,3 +418,30 @@ html, body {
   margin-top: 0;
   padding-top: 0;
 } */
+
+/* 既存の各コンテナから背景指定を削除し、透明にする */
+.header-page, .content-page {
+  background: transparent !important;
+}
+
+/* 背景専用のスタイル */
+.fixed-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100dvh; /* iOSの画面高さ対策 */
+  z-index: -1;
+  background-image: url("photo/IMG_0_1.png");
+  background-size: cover;
+  background-position: center;
+  /* Safariで描画バグを防ぐ */
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+@media screen and (max-width: 768px) {
+  .fixed-bg {
+    background-image: url("photo/IMG_0.png");
+  }
+}
