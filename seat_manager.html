@@ -7,12 +7,12 @@
   <style>
     .form-row { display: flex; align-items: center; flex-wrap: wrap; gap: 0.8rem; margin-bottom: 1rem; }
     input[type="number"] { width: 80px; padding: 0.4rem 0.6rem; border: 1px solid #cfd8dc; border-radius: 4px; }
-    button { border: none; border-radius: 6px; background: #1976d2; color: white; padding: 0.5rem 0.9rem; font-size: 0.95rem; cursor: pointer; transition: background-color 0.2s ease; }
-    button:hover { background: #1358a0; }
+    button { border: none; border-radius: 6px; background: #1F487E; color: white; padding: 0.6rem 1.2rem; writing-mode: horizontal-tb; font-size: 0.95rem; cursor: pointer; transition: background-color 0.2s ease; }
+    button:hover { background: #1D3461; }
     #status { padding: 0.6rem 0.8rem; background: white; border: 1px solid #dce3e8; border-radius: 6px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08); }
   </style>
 </head>
-<body>
+<body style="background-color: #CED3DC;">
   <h2>机と席の管理_責任者用</h2>
 
   <div class="form-row">
@@ -34,7 +34,10 @@
     const clearBtn = document.getElementById('clearBtn');
     const status = document.getElementById('status');
 
-    function saveState(totalDesks, totalSeats, remainingDesks, remainingSeats, desks = []) {
+    const CLOUD_URL = "https://script.google.com/macros/s/AKfycbwZDawi8TC3dBhZqMEACrGEk2GnwVPqa8djNbCMCsPRX8evpzeBYaUZo8gJo8j75ek/exec";
+
+
+    async function saveState(totalDesks, totalSeats, remainingDesks, remainingSeats, desks = []) {
       const payload = {
         totalDesks,
         totalSeats,
@@ -42,39 +45,48 @@
         remainingSeats,
         desks
       };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+
+      await fetch(CLOUD_URL, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
     }
 
-    function loadState() {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return null;
+    async function loadState() {
       try {
-        return JSON.parse(raw);
+        const res = await fetch(CLOUD_URL);
+        return await res.json();
       } catch (e) {
         return null;
       }
     }
 
-    function refreshStatus() {
-      const state = loadState();
+    async function refreshStatus() {
+      const state = await loadState();
       if (!state) {
         status.textContent = '設定なし。まず「設定」をクリックしてください。';
         return;
       }
-      deskCountInput.value = Number.isInteger(state.totalDesks) ? state.totalDesks : 0;
-      defaultSeatsInput.value = Number.isInteger(state.totalSeats) ? state.totalSeats : 0;
-      status.textContent = `合計机:${state.totalDesks} (残:${state.remainingDesks})  合計椅子:${state.totalSeats} (残:${state.remainingSeats})  割当済み机:${state.desks?.length || 0}`;
+
+      deskCountInput.value = state.totalDesks;
+      defaultSeatsInput.value = state.totalSeats;
+
+      status.textContent =
+        `合計机:${state.totalDesks} (残:${state.remainingDesks})  ` +
+        `合計椅子:${state.totalSeats} (残:${state.remainingSeats})  ` +
+        `割当済み机:${state.desks?.length || 0}`;
     }
 
-    generateBtn.addEventListener('click', () => {
+    generateBtn.addEventListener('click', async () => {
       const totalDesks = Math.max(0, Math.min(200, Number(deskCountInput.value) || 0));
       const totalSeats = Math.max(0, Math.min(500, Number(defaultSeatsInput.value) || 0));
-      saveState(totalDesks, totalSeats, totalDesks, totalSeats, []);
+
+      await saveState(totalDesks, totalSeats, totalDesks, totalSeats, []);
       refreshStatus();
     });
 
-    clearBtn.addEventListener('click', () => {
-      localStorage.removeItem(STORAGE_KEY);
+    clearBtn.addEventListener('click', async () => {
+      await saveState(0, 0, 0, 0, []);
       deskCountInput.value = 0;
       defaultSeatsInput.value = 0;
       status.textContent = 'すべてクリアされました。';

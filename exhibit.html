@@ -14,14 +14,24 @@
   <!-- SplideのJavaScript -->
   <script src="https://cdn.jsdelivr.net/npm/@splidejs/splide@4.1.4/dist/js/splide.min.js"></script>
 
-  <title>TMNCT</title>
+  <title>TmNCT卓上ゲーム同好会2026</title>
 </head>
 
   <!-- トグル用チェックボックス -->
   <input type="checkbox" id="sidebar-toggle" aria-label="Toggle menu">
 
   <!-- サイドバー開閉アイコン -->
-  <label for="sidebar-toggle" class="sidebar-icon" role="button"></label>
+  <label for="sidebar-toggle" class="sidebar-icon" role="button">
+    <!-- ハンバーガーアイコン -->
+    <svg class="icon menu" viewBox="0 0 24 24">
+      <path d="M3 6h18M3 12h18M3 18h18" />
+    </svg>
+
+    <!-- クローズアイコン -->
+    <svg class="icon close" viewBox="0 0 24 24">
+      <path d="M6 6l12 12M18 6l-12 12" />
+    </svg>
+  </label>
 
   <!-- サイドバー本体 -->
   <nav class="sidebar">
@@ -38,81 +48,30 @@
         <h3>展示内容</h3>
         <p>苫小牧高専卓上ゲーム同好会では、様々な卓上ゲームを展示します。<br>展示内容の詳細は以下のPDFをご覧ください。</p>
       </section>
-      <div class="game-item">
-        <a href="https://K39Sakura.github.io/2026_ClubExhibition/pdfjs/web/viewer.html?file=/2026_ClubExhibition/photo/%E5%8D%93%E4%B8%8A%E3%82%B2%E3%83%BC%E3%83%A0%E3%83%9E%E3%83%8B%E3%83%A5%E3%82%A2%E3%83%AB_2024%E5%AD%A6%E6%A0%A1%E7%A5%AD%E7%94%A8.pdf" target="_blank">
-          <img src="photo/IMG_1.JPG" alt="ゲーム1" class="game-thumb">
-        </a>
-        <p>ゲームタイトル1</p>
-      </div>
+      <div class="box-row">
+          <div class="box">
+            <a href="pdf\卓上ゲームマニュアル_SCOUT.pdf" target="_blank">
+            <img src="photo/IMG_1.JPG" alt="ゲーム1" class="game-thumb" style="height: 5cm;width: 5cm;display: flex;"><p>SCOUT</p></a>
+          </div>
+          
+          <div class="box"><a href="pdf\卓上ゲームマニュアル_SCOUT.pdf" target="_blank">
+            <img src="photo/IMG_1.JPG" alt="ゲーム1" class="game-thumb" style="height: 5cm;width: 5cm; display: flex;">
+          </a></div>
+          
+          <div class="box"><a href="pdf\卓上ゲームマニュアル_SCOUT.pdf" target="_blank">
+            <img src="photo/IMG_1.JPG" alt="ゲーム1" class="game-thumb" style="height: 5cm;width: 5cm; display: flex;">
+          </a></div>
 
-      <iframe
-        src="https://K39Sakura.github.io/2026_ClubExhibition/pdfjs/web/viewer.html?file=/2026_ClubExhibition/photo/%E5%8D%93%E4%B8%8A%E3%82%B2%E3%83%BC%E3%83%A0%E3%83%9E%E3%83%8B%E3%83%A5%E3%82%A2%E3%83%AB_2024%E5%AD%A6%E6%A0%A1%E7%A5%AD%E7%94%A8.pdf"
-        width="100%"
-        height="600px">
-      </iframe>
+      </div>
     </main>
   </body>
 
-  <script>
+  <!-- <script>
   async function renderSlides() {
     const list = document.getElementById('splide-list');
     list.innerHTML = '';
 
-    const defaultItems = [];
-
-    if (!localStorage.getItem('galleryItems')) {
-      localStorage.setItem('galleryItems', JSON.stringify(defaultItems));
-    }
-
-    const stored = JSON.parse(localStorage.getItem('galleryItems') || '[]');
-    const fallback = defaultItems;
-
-    let serverItems = [];
-    try {
-      const resp = await fetch('/api/gallery');
-      if (resp.ok) serverItems = await resp.json();
-    } catch (e) {}
-
-    const items = serverItems.concat(stored).concat(fallback);
-
-    items.forEach(item => {
-      const li = document.createElement('li');
-      li.className = 'splide__slide';
-
-      const figure = document.createElement('figure');
-      figure.style.margin = '0';
-      figure.style.padding = '0';
-
-      const img = document.createElement('img');
-      img.alt = item.title || '';
-      img.src = item.src;
-      img.style.display = 'block';
-      img.style.margin = '0 auto';
-
-      figure.appendChild(img);
-
-    if (item.title || item.description) {//写真以外はPDFにする？→PDF埋め込みならPDF.js？→ https://mtrad.co.jp/blog/2026/03/23/post-7993/
-      const caption = document.createElement('figcaption');
-      caption.style.textAlign = 'center';
-      caption.style.padding = '8px';
-      caption.innerHTML = `
-        <strong>${item.title || ''}</strong>
-        <div>
-          プレイ人数: ${item.players ?? '不明'}<br>
-          プレイ時間: ${item.playTime ?? '不明'}<br>
-          勝利条件: ${item.winCondition ?? '不明'}
-        </div>
-        <div>${item.description || ''}</div>
-      `;
-      figure.appendChild(caption);
-
-    }
-
-      li.appendChild(figure);
-      list.appendChild(li);
-    });
   }
-
   document.addEventListener('DOMContentLoaded', async function () {
     await renderSlides();
 
@@ -129,5 +88,5 @@
       drag: true,
     }).mount();
   });
-  </script>
+  </script> -->
 </html>

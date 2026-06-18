@@ -14,26 +14,55 @@ body {
   color:#080808;  /* アイコンの色を濡羽色に */
   position: fixed;
   top: 15px;
-  left: 20px;
-  width: 32px;
-  height: 32px;
+  /* left: 20px; */
+  right: 15px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
   z-index: 1001;
-  /*transition: color 0.0s;*/  /* 色がゆっくり変わる */
+  /* 色がゆっくり変わる */
   transition: transform 0.0s;
+}
+
+/* SVG アイコン共通 */
+.icon {
+  width: 32px;
+  height: 32px;
+  stroke: #080808;
+  stroke-width: 2.0;
+  fill: none;
+  position: absolute;
+  transition: opacity 0.25s ease;
+}
+
+/* 初期状態：ハンバーガー表示、✕は非表示 */
+.icon.close {
+  opacity: 0;
+}
+
+/* チェックされたら切り替え */
+#sidebar-toggle:checked ~ .sidebar-icon .menu {
+  opacity: 0;
+}
+
+#sidebar-toggle:checked ~ .sidebar-icon .close {
+  opacity: 1;
 }
 
 .sidebar-icon.white-icon {
   color: #fef4f4;   /* アイコンの色を桜色に */
 }
 
-.sidebar-icon::before {
+/* .sidebar-icon::before {
   content: "≡";
-  font-size: 32px;
-  line-height: 32px;
+  font-size: 40px;
+  line-height: 40px;
   display: block;
   text-align: center;
-}
+} */
 
 @media screen and (max-width: 768px) {
   .sidebar-icon::before {
@@ -50,24 +79,24 @@ body {
 }
 
 /* チェックされると「✕」に変える */
-#sidebar-toggle:checked + .sidebar-icon::before {
+/* #sidebar-toggle:checked + .sidebar-icon::before {
   content: "✕";
   font-size: 40px;
   line-height: 40px;
   display: block;
   text-align: center;
   color:#080808;  /* アイコンの色を濡羽色に */
-}
+/*} */
 
 /* サイドバー本体 */
 .sidebar {
   position: fixed;
   top: 0;
-  left: -100vw;     /* 画面外に完全に隠す */
+  right: -100vw;     /* 画面外に完全に隠す */
   width: 100vw;     /* 画面幅いっぱい */
   height: 100vh;    /* 画面高さいっぱい */
   background-color: rgba(185, 185, 185, 0.97);/*銀鼠色*/
-  transition: left 0.3s ease;
+  transition: right 0.3s ease;
   z-index: 1000;
   display: grid;
   place-items: center;  /* 横・縦とも中央揃え */
@@ -75,7 +104,7 @@ body {
 
 /* チェックされたらスライドイン */
 #sidebar-toggle:checked ~ .sidebar {
-  left: 0;
+  right: 0;
 }
 
 /* リスト装飾のリセット */
@@ -161,8 +190,10 @@ details[open] > summary::after {
 }
 
 .splide__slide img {
-  width: auto;        /* スライドの幅に合わせて画像を広げる */
-  height: 60vh;       /* 縦横比を保ったまま高さを自動調整 */
+  width: 100%;        /* スライドの幅に合わせて画像を広げる */
+  height: auto;       /* 縦横比を保ったまま高さを自動調整 */
+  max-width: 100%;
+  max-height: 50vh; 
   object-fit: contain;  /* はみ出す部分を切り取って表示（必要に応じて） */
   display: block;
   margin: 0 auto;
@@ -179,4 +210,10 @@ details[open] > summary::after {
   text-align: center;
   color: #333;
   font-size: 14px;
+}
+
+@media screen and (max-width: 768px) {
+  .splide__slide img {
+    max-height: 35vh;
+  }
 }
