@@ -149,105 +149,25 @@ html, body {
 
 /* カスタム背景やスタイル調整もここで */
 .header-page {
-  /*margin: 0;*/
-  /*padding: 10px;*/ /* 上下に少しだけ余白を残す */
-  /*background-image: url("photo/background7.png");*/
-  height: 100vh; /* 画面全体の高さ */
-  background-size: cover;       /* 画像をヘッダー全体にフィットさせる */
-  background-position: center;  /* 中央に配置 */
-  background-repeat: no-repeat; /* 繰り返しなし */
-  min-height: 300px;            /* ヘッダーの高さを調整 */
-  background-attachment:fixed;
-  background-Image:url("photo/IMG_0_1.png");
-  position: relative;
-  z-index: 0;
-  overflow: hidden; /* 画像のはみ出し防止 */
-  background: none !important; /* 元の背景指定をリセット */
-}
-
-/* 背景専用の固定レイヤー */
-.header-page::before, .content-page::before {
-  content: "";
-  position: fixed; /* 画面に対して固定 */
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  z-index: -1; /* コンテンツの下に配置 */
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  background-image: url("photo/IMG_0_1.png");
-  /* Safari */
-  will-change: transform;
-  transform: translateZ(0);
-}
-
-/* --- スマホ用の画像切り替え --- */
-@media screen and (max-width: 768px) {
-  .header-page::before, .content-page::before {
-    background-image: url("photo/IMG_0.png");
-  }
-}
-
-.overlay {
-  scroll-snap-align: start;
-  background-color: rgba(0, 0, 0, 0.7); /* 半透明*/
-  /* backdrop-filter: blur(2px); ぼかし */
-
+  background: #000000 !important; /* 背景を完全に黒にして文字を引き立てる */
   width: 100%;
-  padding: 30px 0; /* 上下に余白をつけて見やすくする */
-  
-  display: flex;
-  flex-direction: column;
-  gap: 10px; /* section 同士の間隔 */
-  min-height: 100vh;
-}
-
-
-/* .logo{
-  background: linear-gradient(135deg, rgb(0, 0, 0), rgb(0, 0, 0)); グラデーション
-  background-color: rgba(0, 102, 255, 0.75);
-  background-size: cover; 
-  background-position: center;
-  background-repeat: no-repeat;
-  width: 100%;
-  height: 100%;
+  height: 100vh;                 /* 画面いっぱいの高さ */
   display: flex;
   justify-content: center;
-  align-items: center;  
-} */
+  align-items: center;
+  overflow: hidden;
+  position: relative;
+  z-index: 1 !important; 
+}
 
 @media screen and (max-width: 768px) {
   .header-page {
-    background-Image:url("photo/IMG_0.png");
+    background-image: none !important; /* 画像の重なりによる不具合を防ぐ */
+    background-color: #000000 !important;
+    position: relative;
+    z-index: 1 !important; 
   }
 }
-
-.content-page {
-  height: 100vh;
-  /* background-color: #0bb2ff; */
-  height: 100vh;
-  background-size: cover;       /* 画像をヘッダー全体にフィットさせる */
-  background-position: center;  /* 中央に配置 */
-  background-repeat: no-repeat; /* 繰り返しなし */
-  min-height: 300px;            /* ヘッダーの高さを調整 */
-  background-attachment:fixed;
-  background-image: url("photo/IMG_0_1.png");
-  position: relative;
-  color: #333;
-  padding: 30px;
-}
-
-@media screen and (max-width: 768px) {
-  .content-page {
-    background-image: url("photo/IMG_0.png");
-  }
-}
-
-/* .pages {
-  background-color: #f6f6f6;
-} */
 
 .map-container {
   text-align: center;
@@ -396,59 +316,39 @@ html, body {
 /* 文字をくり抜いたように見せる領域 */
 .cutout-wrapper {
   width: 100%;
-  height: 100%;
   display: flex;
-  background: rgba(0, 0, 0, 1); /* 黒いレイヤー */
   justify-content: center;
   align-items: center;
+  background: transparent !important; /* 背景の黒を邪魔しないように透明化 */
 }
 
 /* くり抜き文字 */
 .cutout-text {
-  /* font-family: 'Noto Serif JP', serif; */
-  /* font-size: 100px;
-  font-weight: 900; */
-  /* color: rgb(255, 255, 255); */
-  /* mix-blend-mode: difference; くり抜き */
+  background-image: url("photo/IMG_0.png");
   font-size:17vh;
   font-weight: 900;
   padding: 20px 40px;
   margin-left: 5vw;
   margin-right: 5vw;
-  color: transparent;
-  /* color: rgba(255, 255, 255, 0.25); */
-  /* transform: rotate(7deg); */
-  background-image: url('photo/IMG_0_1.png');
-  background-size: cover;
-  background-position: center;
   background-clip: text;
   -webkit-background-clip: text;
-  background-attachment: fixed;
+  color: transparent;
   background-repeat: no-repeat;
+  background-size: cover;
+  background-position: center;
 }
 
 @media screen and (max-width: 768px) {
   .cutout-text{
     font-size: 9vh;
-    background-image: url('photo/IMG_0.png');
-    background-size: cover;
-    background-position: center;
   }
 }
 
 @media screen and (max-width: 1024px) {
   .cutout-text{
     font-size: 9vh;
-    background-size: cover;
-    background-position: center;
   }
-  
 }
-
-/* #image-carousel {
-  margin-top: 0;
-  padding-top: 0;
-} */
 
 /* 既存の各コンテナから背景指定を削除し、透明にする */
 .header-page, .content-page {
@@ -462,7 +362,7 @@ html, body {
   left: 0;
   width: 100%;
   height: 100dvh;
-  z-index: -1;
+  z-index: -2;
   background-image: url("photo/IMG_0_1.png");
   background-size: cover;
   background-position: center;
@@ -474,4 +374,51 @@ html, body {
   .fixed-bg {
     background-image: url("photo/IMG_0.png");
   }
+}
+
+.header-page::before, .content-page::before {
+  content: "";
+  position: fixed; /* 画面に対して固定 */
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: -1; /* コンテンツの下に配置 */
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-image: url("photo/IMG_0_1.png");
+  /* Safari */
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+@media screen and (max-width: 768px) {
+  .header-page::before, .content-page::before {
+    background-image: url("photo/IMG_0.png");
+  }
+}
+
+.overlay {
+  scroll-snap-align: start;
+  background-color: rgba(0, 0, 0, 0.7); /* 半透明*/
+  width: 100%;
+  padding: 30px 0; /* 上下に余白をつけて見やすくする */
+  display: flex;
+  flex-direction: column;
+  gap: 10px; /* section 同士の間隔 */
+  min-height: 100vh;
+}
+
+.content-page {
+  height: 100vh;
+  background-size: cover;       /* 画像をヘッダー全体にフィットさせる */
+  background-position: center;  /* 中央に配置 */
+  background-repeat: no-repeat; /* 繰り返しなし */
+  min-height: 300px;            /* ヘッダーの高さを調整 */
+  background-attachment: fixed;
+  background-image: url("photo/IMG_0_1.png");
+  position: relative;
+  color: #333;
+  padding: 30px;
 }
