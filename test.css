@@ -156,16 +156,12 @@ html, body {
   justify-content: center;
   align-items: center;
   overflow: hidden;
-  position: relative;
-  z-index: 1 !important; 
 }
 
 @media screen and (max-width: 768px) {
   .header-page {
     background-image: none !important; /* 画像の重なりによる不具合を防ぐ */
     background-color: #000000 !important;
-    position: relative;
-    z-index: 1 !important; 
   }
 }
 
@@ -316,37 +312,43 @@ html, body {
 /* 文字をくり抜いたように見せる領域 */
 .cutout-wrapper {
   width: 100%;
+  height: 100%;
   display: flex;
+  background: rgba(0, 0, 0, 1); /* 黒いレイヤー */
   justify-content: center;
   align-items: center;
-  background: transparent !important; /* 背景の黒を邪魔しないように透明化 */
 }
 
 /* くり抜き文字 */
 .cutout-text {
-  background-image: url("photo/IMG_0.png");
-  font-size:17vh;
+  font-size: 17vh;
   font-weight: 900;
   padding: 20px 40px;
   margin-left: 5vw;
   margin-right: 5vw;
-  background-clip: text;
-  -webkit-background-clip: text;
   color: transparent;
-  background-repeat: no-repeat;
+  
+  background-image: url('photo/IMG_0_1.png');
   background-size: cover;
   background-position: center;
+  background-clip: text;
+  -webkit-background-clip: text;
+  background-attachment: fixed;
+  background-repeat: no-repeat;
 }
 
 @media screen and (max-width: 768px) {
-  .cutout-text{
+  .cutout-text {
     font-size: 9vh;
+    background-image: url('photo/IMG_0.png');
   }
 }
 
 @media screen and (max-width: 1024px) {
   .cutout-text{
     font-size: 9vh;
+    background-size: cover;
+    background-position: center;
   }
 }
 
