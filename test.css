@@ -284,13 +284,44 @@ html, body {
 
 .box-row{
   display: flex;
+  flex-wrap: wrap;        /* 画面幅を超えたら自動改行する */
   justify-content: center; /* 中央揃え */
+  gap: 20px;              /* 写真と写真の間のすき間 */
 }
 .box {
   position: relative;
-  display: inline-block;
-  margin: 20px;
   padding: 20px;
+  width: calc(5cm + 40px); 
+  box-sizing: border-box;
+}
+
+.box a {
+  display: flex;
+  flex-direction: column;  /* 画像と文字を「上下」に並べる */
+  align-items: center;     /* 画像も文字も「中央揃え」にする（左揃えが良い場合は flex-start） */
+  text-decoration: none;   /* リンクの下線を消す */
+  color: #333;
+}
+
+.box img.game-thumb {
+  display: block !important; /* display: flex; を強制解除 */
+  width: 5cm !important;     /* 横幅5cmに固定 */
+  height: 5cm !important;    /* 縦幅5cmに固定 */
+  object-fit: cover;         /* 写真が歪まないようにトリミング */
+}
+
+.box p {
+  margin: 10px 0 0 0;      /* 写真との間のすき間 */
+  font-size: 16px;
+  text-align: center;      /* 文字単体も中央揃えにする */
+  width: 100%;             /* 文字の横幅を画像と同じ幅に広げる */
+  word-break: break-all;   /* 長い文字でも枠内で自動改行 */
+}
+
+.box img {
+  width: 100%;            /* .boxの幅（最大300px）に画像を合わせる */
+  height: auto;           /* 縦横比を維持 */
+  display: block;
 }
 
 @media screen and (max-width: 768px) {
@@ -307,7 +338,7 @@ html, body {
 
 @media (prefers-color-scheme: dark) {
   .dark-only {
-    display: block; /* または flex など、表示させたいスタイル */
+    display: block;
   }
 
   .light-only {
@@ -321,7 +352,7 @@ html, body {
   }
 
   .light-only {
-    display: block; /* または flex など、表示させたいスタイル */
+    display: block;
   }
 }
 
