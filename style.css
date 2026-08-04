@@ -193,7 +193,7 @@ details[open] > summary::after {
   width: 100%;        /* スライドの幅に合わせて画像を広げる */
   height: auto;       /* 縦横比を保ったまま高さを自動調整 */
   max-width: 100%;
-  max-height: 50vh; 
+  max-height: 40vh; 
   object-fit: contain;  /* はみ出す部分を切り取って表示（必要に応じて） */
   display: block;
   margin: 0 auto;
@@ -215,5 +215,39 @@ details[open] > summary::after {
 @media screen and (max-width: 768px) {
   .splide__slide img {
     max-height: 35vh;
+  }
+}
+
+/* PC向けのレスポンシブ対応（画面幅768px以上の場合） */
+@media (min-width: 768px) {
+  /* 画面全体を1画面に収める */
+  body {
+    margin: 0;
+    padding: 0;
+    display: flex;
+    height: 100vh;
+    /*overflow: hidden;*/ /* 画面外へのハミ出しとスクロールを禁止 */
+  }
+
+  /* 左側のヘッダー */
+  #page-header {
+    flex: 1; /* 左右の幅の比率（必要に応じて調整） */
+    height: 100%;
+    display: flex;
+    align-items: center; /* 縦方向の中央揃え */
+    justify-content: center; /* 横方向の中央揃え */
+  }
+
+  /* 右側のメインコンテンツ */
+  main {
+    flex: 1; /* 左右の幅の比率（必要に応じて調整） */
+    height: 100%;
+    overflow-y: auto; /* 万が一中身が溢れた場合、右側だけをスクロールさせる */
+  }
+
+  /* コンテンツページも高さを100%に */
+  .content-page, .overlay {
+    height: 100%;
+    box-sizing: border-box;
   }
 }
