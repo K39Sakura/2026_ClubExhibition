@@ -103,7 +103,8 @@
               : 0;
               if (percentage >= 100) {
                 statusText.innerHTML = "現在満席です<br>( TДT)ｺﾞﾒﾝﾖｰ ";
-                statusText.style.color = "red"; // 満席の場合は赤色にする
+                statusText.style.color = "#FF5252"; // 満席の場合は赤色にする
+                statusText.style.fontWeight = "bold";
                 return;
               } else {
                 // statusText.textContent = `${percentage}%`;
@@ -113,9 +114,9 @@
               if (percentage < 50) {
                 statusText.style.color = "white"; // 白色
               } else if (percentage < 80) {
-                statusText.style.color = "gold";   // 黄色
+                statusText.style.color = "#FFEE58";   // 黄色
               } else {
-                statusText.style.color = "orange"; // オレンジ
+                statusText.style.color = "#FFA726"; // オレンジ
               }
 
             // statusText.textContent = `${percentage}%`;
