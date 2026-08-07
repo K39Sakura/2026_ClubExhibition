@@ -56,14 +56,6 @@ body {
   color: #fef4f4;   /* アイコンの色を桜色に */
 }
 
-/* .sidebar-icon::before {
-  content: "≡";
-  font-size: 40px;
-  line-height: 40px;
-  display: block;
-  text-align: center;
-} */
-
 @media screen and (max-width: 768px) {
   .sidebar-icon::before {
     font-size: 40px;
@@ -77,16 +69,6 @@ body {
     line-height: 50px;
   }
 }
-
-/* チェックされると「✕」に変える */
-/* #sidebar-toggle:checked + .sidebar-icon::before {
-  content: "✕";
-  font-size: 40px;
-  line-height: 40px;
-  display: block;
-  text-align: center;
-  color:#080808;  /* アイコンの色を濡羽色に */
-/*} */
 
 /* サイドバー本体 */
 .sidebar {
@@ -125,23 +107,11 @@ body {
   margin-bottom: -1em;
 }
 
-/*.sidebar .Exbit_Introduction-menu ol{*/
-  /*line-height: normal;*/
-  /*margin-top: -0.125em;*/
-  /*margin-bottom: -2em;*/
-/*}*/
-
 /* リンクスタイル */
 .sidebar a {
   text-decoration: none;
   color: #333;
 }
-
-/*.Exhibit_Introduction-menu*/
-/*{*/
-  /*padding: 0.5em 1em;*/
-  /*margin-top: 0.4rem;*/
-/*}*/
 
 /* summaryのデフォルトマーカーを消す */
 /* Chrome/Safari */
@@ -226,25 +196,57 @@ details[open] > summary::after {
     padding: 0;
     display: flex;
     height: 100vh;
+    flex-direction: row; 
     /*overflow: hidden;*/ /* 画面外へのハミ出しとスクロールを禁止 */
   }
+  
+  .header, .pages {
+    flex: 1;
+  }
 
-  /* 左側のヘッダー */
-  #page-header {
-    flex: 1; /* 左右の幅の比率（必要に応じて調整） */
-    height: 100%;
+  /* 左ヘッダー版 */
+  .layout-left-header .header {
+    order: 0;
+    overflow: hidden;
+    flex-direction: column;
     display: flex;
-    align-items: center; /* 縦方向の中央揃え */
-    justify-content: center; /* 横方向の中央揃え */
-  }
-
-  /* 右側のメインコンテンツ */
-  main {
-    flex: 1; /* 左右の幅の比率（必要に応じて調整） */
+    align-items: center;
+    justify-content: center;
     height: 100%;
-    overflow-y: auto; /* 万が一中身が溢れた場合、右側だけをスクロールさせる */
   }
 
+  .layout-left-header .pages {
+    order: 1;
+    overflow-y: auto;
+    height: auto;
+    scrollbar-width: none;
+  }
+
+  .layout-left-header .pages::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* 右ヘッダー版 */
+  .layout-right-header .header {
+    order: 1;
+    overflow: hidden;
+    flex-direction: column;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+  }
+
+  .layout-right-header .pages {
+    order: 0;
+    overflow-y: auto;
+    height: auto;
+    scrollbar-width: none;
+  }
+
+  .layout-right-header .pages::-webkit-scrollbar {
+    display: none;
+  }
   /* コンテンツページも高さを100%に */
   .content-page, .overlay {
     height: 100%;

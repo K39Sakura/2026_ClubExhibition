@@ -49,21 +49,10 @@ li {
   font-size: 20px;
 }
 
-/*li:hover {*/
-  /*background-color:#fff; */ /* ホバー時の色変化 */
-  /*opacity: 0.6;*/ /* 60%表示にすることで薄くなる印象に */
-  /*background-color: rgba(214, 214, 214, 0.8);*/
-/*}*/
-
-
 .field {
   display: flex;
   justify-content: space-around;
 }
-
-/*body.top {
-  overflow: hidden;
-}*/
 
 .adaptive-img {
   width: 30%;
@@ -198,25 +187,15 @@ html, body {
   }
 }
 
-.box-row{
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-  grid-auto-rows: 1px;
-  gap: 0 10px;
-  /*flex-wrap: wrap;*/        /* 画面幅を超えたら自動改行する */
-  /*justify-content: center;*/ /* 中央揃え */
-  /*gap: 20px;*/              /* 写真と写真の間のすき間 */
-}
-.box {
-  position: relative;
-  padding: 10px;
-  /*width: calc(5cm + 40px); */
-  box-sizing: border-box;
-  align-self: start;
+.box-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: flex-start; /*高さを揃えずレンガ状にする */
 }
 
 .box a {
-  display: flex;
+  display: block;
   flex-direction: column;  /* 画像と文字を「上下」に並べる */
   align-items: center;     /* 画像も文字も「中央揃え」にする（左揃えが良い場合は flex-start） */
   text-decoration: none;   /* リンクの下線を消す */
@@ -225,8 +204,10 @@ html, body {
 
 .box img.game-thumb {
   display: block !important; /* display: flex; を強制解除 */
-  /*width: 5cm !important;*/     /* 横幅5cmに固定 */
-  object-fit: cover;         /* 写真が歪まないようにトリミング */
+  /*max-width: 100%;*/   /* 枠からはみ出さない */
+  height: auto;      /* 縦横比を維持（高さ指定なし） */
+  display: block;    /* 余計な隙間を消す */
+  object-fit: contain; /* 切れない */
 }
 
 .box p {
@@ -238,9 +219,9 @@ html, body {
 }
 
 .box img {
-  width: 100%;            /* .boxの幅（最大300px）に画像を合わせる */
   height: auto;           /* 縦横比を維持 */
   display: block;
+  margin: 20px ;
 }
 
 @media screen and (max-width: 768px) {
@@ -273,43 +254,6 @@ html, body {
   .light-only {
     display: block;
   }
-}
-
-.parent {
-  text-align: center;
-}
-
-.balloon {
-  position: relative;
-  display: inline-block;
-  margin: 1.5em 0;
-  padding: 7px 10px;
-  min-width: 120px;
-  max-width: 100%;
-  color: #555;
-  font-size: 16px;
-  background: #e0edff;
-  border-radius: 50%;
-}
-
-.balloon:before {
-  content: "";
-  position: absolute;
-  top: 100%;
-  left: 50%;
-  margin-left: -15px;
-  border: 15px solid transparent;
-  border-top: 15px solid #e0edff;
-}
-
-.balloon p {
-  margin: 0;
-  padding: 0;
-}
-
-.vertical {
-  writing-mode: vertical-rl;
-  text-orientation: mixed;
 }
 
 /* 文字をくり抜いたように見せる領域 */
