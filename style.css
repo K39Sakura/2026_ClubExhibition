@@ -164,6 +164,7 @@ details[open] > summary::after {
   background-color: rgba(228, 229, 230,0.5);/*白金*/
 }
 
+
 .splide__slide img {
   width: 100%;        /* スライドの幅に合わせて画像を広げる */
   height: auto;       /* 縦横比を保ったまま高さを自動調整 */
