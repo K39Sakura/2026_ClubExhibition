@@ -16,6 +16,11 @@
     <script src="https://cdn.jsdelivr.net/npm/@splidejs/splide@4.1.4/dist/js/splide.min.js"></script>
   
     <title>TmNCT卓上ゲーム同好会2026</title>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/bxslider/4.2.12/jquery.bxslider.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/bxslider/4.2.12/jquery.bxslider.min.js"></script>
+
 </head>
 <body class="top,layout-left-header">
 
@@ -74,13 +79,97 @@
               <div class="splide__track">
                 <ul class="splide__list">
                   <li class="splide__slide">
-                    <img src="photo/IMG_1.JPG" alt="展示画像1">
+                    <img src="photo/ANOMAFIA.jpg" alt="展示画像1">
                   </li>
                   <li class="splide__slide">
-                    <img src="photo/IMG_2.JPG" alt="展示画像2">
+                    <img src="photo/Black_Hearts.jpg" alt="展示画像2">
                   </li>
                   <li class="splide__slide">
-                    <img src="photo/IMG_3.JPG" alt="展示画像3">
+                    <img src="photo/BOHNANZA.jpg" alt="展示画像3">
+                  </li>
+                  <li class="splide__slide">
+                    <img src="photo/CRUSH_ICE_GAME.jpg" alt="展示画像4">
+                  </li>
+                  <li class="splide__slide">
+                    <img src="photo/DILETTO.jpg" alt="展示画像5">
+                  </li>
+                  <li class="splide__slide">
+                    <img src="photo/INSIDER.jpg" alt="展示画像6">
+                  </li>
+                  <li class="splide__slide">
+                    <img src="photo/ito.jpg" alt="展示画像7">
+                  </li>
+                  <li class="splide__slide">
+                    <img src="photo/La_Peste.jpg" alt="展示画像8">
+                  </li>
+                  <li class="splide__slide">
+                    <img src="photo/Lost_Cities.jpg" alt="展示画像9">
+                  </li>
+                  <li class="splide__slide">
+                    <img src="photo/QUARTO.jpg" alt="展示画像10">
+                  </li>
+                  <li class="splide__slide">
+                    <img src="photo/QUIXO.jpg" alt="展示画像11">
+                  </li>
+                  <li class="splide__slide">
+                    <img src="photo/SCOUT!.jpg" alt="展示画像12">
+                  </li>
+                  <li class="splide__slide">
+                    <img src="photo/STRIKE.jpg" alt="展示画像13">
+                  </li>
+                  <li class="splide__slide">
+                    <img src="photo/TIGER&DRAGON.jpg" alt="展示画像14">
+                  </li>
+                  <li class="splide__slide">
+                    <img src="photo/XENO.jpg" alt="展示画像15">
+                  </li>
+                  <li class="splide__slide">
+                    <img src="photo/コーヒーラッシュ.jpg" alt="展示画像16">
+                  </li>
+                  <li class="splide__slide">
+                    <img src="photo/ごきぶりポーカー.jpg" alt="展示画像17">
+                  </li>
+                  <li class="splide__slide">
+                    <img src="photo/コヨーテ.jpg" alt="展示画像18">
+                  </li>
+                  <li class="splide__slide">
+                    <img src="photo/テストプレイなんてしてないよ.jpg" alt="展示画像19">
+                  </li>
+                  <li class="splide__slide">
+                    <img src="photo/トマトマト.jpg" alt="展示画像20">
+                  </li>
+                  <li class="splide__slide">
+                    <img src="photo/ノラネコボスネコ.jpg" alt="展示画像21">
+                  </li>
+                  <li class="splide__slide">
+                    <img src="photo/ブロックスデュオ.jpg" alt="展示画像22">
+                  </li>
+                  <li class="splide__slide">
+                    <img src="photo/ペンギンパーティー.jpg" alt="展示画像23">
+                  </li>
+                  <li class="splide__slide">
+                    <img src="photo/モンスターメーカー.jpg" alt="展示画像24">
+                  </li>
+                  <li class="splide__slide">
+                    <img src="photo/音速飯店.jpg" alt="展示画像25">
+                  </li>
+                  <li class="splide__slide">
+                    <img src="photo/海底探索.jpg" alt="展示画像26">
+                  </li>
+                  <li class="splide__slide">
+                    <img src="photo/街コロ.jpg" alt="展示画像27">
+                  </li>
+                  <li class="splide__slide">
+                    <img src="photo/最後の一葉.jpg" alt="展示画像28">
+                  </li>
+                  <li class="splide__slide">
+                    <img src="photo/代償比べ.jpg" alt="展示画像29">
+                  </li>
+                  <li class="splide__slide">
+                    <img src="photo/犯人は踊る.jpg" alt="展示画像30">
+                  </li>
+                  <li class="splide__slide">
+                    <img src="photo/命鯉.jpg" alt="展示画像31">
                   </li>
                 </ul>
               </div>
@@ -141,5 +230,19 @@
       setInterval(loadSeatStatus, 5000);
     });
   </script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      new Splide('#image-carousel', {
+        type: 'loop',
+        autoplay: true,
+        interval: 2000,
+        pauseOnHover: true,
+        heightRatio: 0.7,
+        arrows: false, //横スライド用矢印非表示
+        pagination: false, //枚数分の点非表示
+      }).mount();
+    });
+  </script>
+
 </body>
 </html>
