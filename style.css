@@ -164,6 +164,44 @@ details[open] > summary::after {
   background-color: rgba(228, 229, 230,0.5);/*白金*/
 }
 
+/* 写真スライドショー全体を囲んでいる一番外側のクラス */
+.carousel-container {
+  width: 100%;
+  overflow: hidden;
+}
+
+.marqueer {
+  width: 600px;       /* 写真の横幅サイズ*/
+  height: 400px;
+  overflow: hidden;       /* これが無いと31枚全部見えてしまう */
+  margin: 0 auto;
+}
+
+.marqueer ul {
+  display: flex;
+  flex-wrap: nowrap;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+  height: 100%;
+}
+
+/*写真1枚のサイズ（右半分の幅の中に、きっちり3枚並ぶサイズ） */
+.marqueer ul li {
+  flex: 0 0 600px;
+  width: 600px;
+  height: 100%;
+  padding: 0;            /* 写真同士の間隔 */
+  flex-shrink: 0;            /* 写真が絶対に潰れないようにする */
+  margin: 0;
+}
+
+.marqueer img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
 
 .splide__slide img {
   width: 100%;        /* スライドの幅に合わせて画像を広げる */
@@ -202,8 +240,9 @@ details[open] > summary::after {
     padding: 0;
     display: flex;
     height: 100vh;
+    width: 100%;
     flex-direction: row; 
-    /*overflow: hidden;*/ /* 画面外へのハミ出しとスクロールを禁止 */
+    /*overflow-x: hidden;*/ /* 画面外へのハミ出しとスクロールを禁止 */
   }
   
   .header, .pages {
@@ -219,7 +258,7 @@ details[open] > summary::after {
     display: flex;
     align-items: center;
     justify-content: center;
-    height: 100%;
+    height: 100% !important;
   }
 
   .layout-left-header .pages {
@@ -247,7 +286,7 @@ details[open] > summary::after {
   .layout-right-header .pages {
     order: 0;
     overflow-y: auto;
-    height: auto;
+    height: 100%;
     scrollbar-width: none;
   }
 
@@ -259,10 +298,44 @@ details[open] > summary::after {
     height: 100%;
     box-sizing: border-box;
   }
+
+ .overlay {
+    display: flex;
+    flex-direction: column;   /* 縦一列に上から並べる */
+    justify-content: center;  /* 垂直方向（上下）を中央に寄せる */
+    align-items: center;      /* 右半分という領域の「完全な水平中央」にセンタリング */
+    width: 100%;
+    height: 100%;
+    overflow: hidden;         /* 画面外（右端）へのハミ出しとスクロールバーを完全禁止 */
+    box-sizing: border-box;
+  }
+
+  .overlay section {
+    width: 100% !important;   /* 横に分割せず、右半分の幅いっぱいに使う */
+    max-width: 100% !important;
+    display: flex;
+    flex-direction: column;
+    align-items: center;      /* 各セクション内の文字も中央寄せ */
+    text-align: center;
+    box-sizing: border-box;
+    margin: 12px 0;           /* 上下の要素同士のほどよい間隔（隙間） */
+  }
 }
 
 @media (max-width: 480px) {
   /* 画面全体を1画面に収める */
+  body {
+    margin: 0;
+    padding: 0;
+    display: block;
+    width: 100%;
+    overflow-x: hidden;
+  }
+  
+  .header, .pages {
+    width: 100%;
+    height: auto;
+  }
 
   /* 左ヘッダー版 */
   .layout-left-header .header {
@@ -277,7 +350,7 @@ details[open] > summary::after {
 
   .layout-left-header .pages {
     order: 1;
-    overflow-y: auto;
+    overflow-x: hidden;
     height: auto;
     scrollbar-width: none;
   }
@@ -299,7 +372,7 @@ details[open] > summary::after {
 
   .layout-right-header .pages {
     order: 0;
-    overflow-y: auto;
+    overflow-x: hidden;
     height: auto;
     scrollbar-width: none;
   }
@@ -311,5 +384,47 @@ details[open] > summary::after {
   .content-page, .overlay {
     height: 100%;
     box-sizing: border-box;
+    overflow-x: hidden;
+  }
+
+  /* 写真スライドショー全体を囲んでいる一番外側のクラス */
+  .carousel-container {
+    width: 100%;
+    overflow: hidden;
+  }
+
+  .marqueer {
+    width: 75vw;       /* 写真の横幅サイズ*/
+    height: 40vh;
+    overflow: hidden;       /* これが無いと31枚全部見えてしまう */
+    margin: 0 auto;
+  }
+
+  .marqueer ul {
+    display: flex;
+    flex-wrap: nowrap;
+    padding: 0;
+    margin: 0;
+    list-style: none;
+    height: 100%;
+    width: 100%;
+  }
+
+  /*写真1枚のサイズ（右半分の幅の中に、きっちり3枚並ぶサイズ） */
+  .marqueer ul li {
+    flex: 0 0 75vw;
+    width: 75vw;
+    height: 100%;
+    padding: 0;            /* 写真同士の間隔 */
+    flex-shrink: 0;            /* 写真が絶対に潰れないようにする */
+    margin: 0;
+  }
+
+  .marqueer img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
   }
 }
+
