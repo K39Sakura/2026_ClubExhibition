@@ -28,6 +28,9 @@ section{
   padding: 0;;
 }
 
+a{
+  text-decoration: none;
+}
 
 ol{
   list-style-type: none;
