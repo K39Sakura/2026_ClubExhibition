@@ -52,6 +52,24 @@ li {
   font-size: 20px;
 }
 
+/* デフォルト（PC向け） */
+.br-sp {
+  display: none; /* スマホ用改行を非表示 */
+}
+.br-pc {
+  display: inline; /* PC用改行を表示 */
+}
+
+/* スマホ用（画面幅が768px以下の場合） */
+@media screen and (max-width: 768px) {
+  .br-sp {
+    display: inline; /* スマホ用改行を表示 */
+  }
+  .br-pc {
+    display: none; /* PC用改行を非表示 */
+  }
+}
+
 .field {
   display: flex;
   justify-content: space-around;
