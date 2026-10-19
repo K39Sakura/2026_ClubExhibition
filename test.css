@@ -339,3 +339,32 @@ html, body {
   color: #333;
   /*padding: 30px;*/
 }
+
+.more-box {
+  flex-grow: 1;
+  text-align: right;
+  padding: 20px 0;
+  min-width: 200px;
+  align-self: flex-end;
+  margin-right: -250px;   /* パソコンでは右へ大幅に寄せる */
+}
+
+.more-text {
+  font-size: 250%;
+  padding: 0;
+  margin: 0;
+  line-height: 1;
+}
+
+@media (max-width: 768px) {
+  .more-box {
+    margin-right: 0;     
+    min-width: 100%;      /* 横幅いっぱいに広げて写真の下に回り込ませる */
+    text-align: right;    /* スマホ画面の右端に綺麗に寄せる */
+    padding-top: 30px;    /* 写真との間に少し隙間を作る */
+  }
+
+  .more-text {
+    font-size: 180%;      /* スマホの画面幅に合わせて文字を少しだけ縮小 */
+  }
+}
