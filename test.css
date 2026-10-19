@@ -343,10 +343,11 @@ html, body {
 .more-box {
   flex-grow: 1;
   text-align: right;
-  padding: 20px 0;
   min-width: 200px;
-  align-self: flex-end;
-  margin-right: -250px;   /* パソコンでは右へ大幅に寄せる */
+  margin-top: 1.5em;
+  max-width: 50%;
+  margin-left: auto; /* 左側に自動で余白を作り、要素を右半分に押し出す */
+  margin-right: 0; 
 }
 
 .more-text {
@@ -358,7 +359,8 @@ html, body {
 
 @media (max-width: 768px) {
   .more-box {
-    margin-right: 0;     
+    margin-top: 0 !important;
+    margin-right: 0;    
     min-width: 100%;      /* 横幅いっぱいに広げて写真の下に回り込ませる */
     text-align: right;    /* スマホ画面の右端に綺麗に寄せる */
     padding-top: 30px;    /* 写真との間に少し隙間を作る */
