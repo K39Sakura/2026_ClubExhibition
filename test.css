@@ -368,3 +368,9 @@ html, body {
     font-size: 180%;      /* スマホの画面幅に合わせて文字を少しだけ縮小 */
   }
 }
+
+@media (max-width: 768px) {
+  .qr{
+    width: 100%;
+  }
+}
