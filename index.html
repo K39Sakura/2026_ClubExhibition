@@ -159,9 +159,9 @@
                   <li>
                     <img src="photo/海底探索.jpg" alt="展示画像26"><!--許可済み-->
                   </li>
-                  <li>
-                    <img src="photo/街コロ.jpg" alt="展示画像27"><!--許可済み-->
-                  </li>
+                  <!--<li>
+                    <img src="photo/街コロ.jpg" alt="展示画像27">
+                  </li>-->
                   <li>
                     <img src="photo/最後の一葉.jpg" alt="展示画像28"><!--許可済み-->
                   </li>
@@ -243,9 +243,8 @@
         const items = Array.from(marquee.children);             
         if (items.length === 0) return;
 
-        // スピード調整：1枚が通り過ぎるのに「8秒」かける
-        // もしこれでも早ければ、10 や 12 に増やす
-        const speedSeconds = 8;                                 
+        // スピード調整：1枚が通り過ぎる時間
+        const speedSeconds = 10;                                 
 
         // 「1番目の画像」の正確な幅を取得
         const itemWidth = items[0].getBoundingClientRect().width;
