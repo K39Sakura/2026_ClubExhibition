@@ -376,3 +376,31 @@ html, body {
     width: 100%;
   }
 }
+
+.enquete-box {
+  width: max-content;
+  margin: 0 auto;
+  text-align: center; 
+}
+
+.enquete-text {
+  text-indent: 0em;
+  text-align: center;
+  margin: 0 0 12px 0;
+  white-space: nowrap; /* PCで改行しない */
+}
+
+
+@media (max-width: 768px) {
+  .enquete-box {
+    width: 95%;
+  }
+
+  .enquete-text {
+    text-indent: 1em;
+    display: block;
+    text-align: left;
+    white-space: normal;
+  }
+}
+
