@@ -47,7 +47,8 @@
     body.mode-normal .chair { cursor: grab; }
     .chair.dragging { opacity: 0.4; }
     body.mode-edit .chair { cursor: move; touch-action: none; }
-    .chair.selected { outline: 2px solid #e08e0b; outline-offset: 1px; background: #fff3dc; }
+    .side-add { position: absolute; width: 20px; height: 20px; padding: 0; border-radius: 50%; background: #e08e0b; color: white; font-size: 14px; line-height: 20px; text-align: center; }
+    .side-add:hover { background: #b86f00; }
     .marquee { position: absolute; border: 1px dashed #e08e0b; background: rgba(224, 142, 11, 0.12); pointer-events: none; }
     #panelBody.multi .single-only { display: none !important; }
   </style>
@@ -84,7 +85,6 @@
         <select id="typeSelect"></select>
         <button id="rotateLeftBtn" type="button" title="左に45°回転">⟲ 45°</button>
         <button id="rotateRightBtn" type="button" title="右に45°回転">⟳ 45°</button>
-        <button id="resetChairsBtn" type="button" title="椅子を机のまわりに自動で並べ直す">椅子の位置をリセット</button>
       </span>
       <button id="deleteDeskBtn" type="button" class="danger">机を削除</button>
     </span>
@@ -107,10 +107,11 @@
     const GRID = 10;                                          // 机を動かすときのマス目
     const CHAIR_SIZE = 20;                                    // .chair の width/height と合わせる
     const DESK_TYPES = {
-      long:   { label: '長机',   w: 145, h: 48 },
-      medium: { label: '中机',   w: 95,  h: 48 },
-      square: { label: '正方形', w: 70,  h: 70 },
-      big:    { label: '大机',   w: 145, h: 95 },
+      // caps: 辺ごとに置ける椅子の数（top/bottom = 長い辺、left/right = 短い辺）
+      long:   { label: '長机',   w: 145, h: 48, caps: { top: 3, bottom: 3, left: 0, right: 0 } },
+      medium: { label: '中机',   w: 95,  h: 48, caps: { top: 2, bottom: 2, left: 1, right: 1 } },
+      square: { label: '正方形', w: 70,  h: 70, caps: { top: 1, bottom: 1, left: 1, right: 1 } },
+      big:    { label: '大机',   w: 145, h: 95, caps: { top: 3, bottom: 3, left: 2, right: 2 } },
     };
     const DEFAULT_TYPE = 'long';
 
@@ -128,7 +129,6 @@
     let marquee = null;                                       // 範囲選択中の情報
     let chairDragging = false;                                // 椅子を別の机へ移動中（通常モード）
     let chairDrag = null;                                     // 椅子の位置を調整中（配置編集モード）
-    let selectedChair = null;                                 // 選択中の椅子 { deskId, idx }
     let lastLocalChange = 0;                                  // 最後に自分が変更した時刻
 
     function createSeat(id) {
@@ -293,11 +293,8 @@
             seats: Array.isArray(d.seats)
               ? d.seats.map(s => {
                   const seat = { id: s.id || `${d.name}-seat` };
-                  // 手で動かした椅子の位置（机の左上からの相対位置）
-                  if (Number.isFinite(s.dx) && Number.isFinite(s.dy)) {
-                    seat.dx = s.dx;
-                    seat.dy = s.dy;
-                  }
+                  // 椅子を置く辺
+                  if (SIDES.includes(s.side)) seat.side = s.side;
                   return seat;
                 })
               : [],
@@ -307,7 +304,10 @@
             y: Number.isFinite(d.y) ? d.y : null,
           }));
 
-          desks.forEach(d => adjustDeskSeats(d, d.seatCount));
+          desks.forEach(d => {
+            adjustDeskSeats(d, d.seatCount);
+            normalizeSides(d);
+          });
           placeUnplacedDesks();
         }
       } catch (e) {
@@ -358,57 +358,80 @@
     window.addEventListener('resize', fitFloor);
 
     // ===== 椅子の並べ方 =====
-    // 机のまわり（長い辺を優先）に椅子を並べた座標（机の左上からの相対位置）を返す
-    function chairPositions(w, h, n) {
-      const step = CHAIR_SIZE + 4;
-      const off = CHAIR_SIZE / 2 + 3;
-      const capH = Math.max(1, Math.floor(w / step));   // 上下の辺に置ける数
-      const capV = Math.max(1, Math.floor(h / step));   // 左右の辺に置ける数
-      const sides = [
-        { key: 'top', cap: capH, long: w >= h },
-        { key: 'bottom', cap: capH, long: w >= h },
-        { key: 'left', cap: capV, long: h >= w },
-        { key: 'right', cap: capV, long: h >= w },
-      ];
-      // 長い辺 → 短い辺の順に、交互に詰める
-      const order = [...sides.filter(s => s.long), ...sides.filter(s => !s.long)];
+    // 椅子は回転前の机の4辺（top/bottom = 長い辺、left/right = 短い辺）のどれかに置く
+    // 辺は机と一緒に回転する。同じ辺の椅子は等間隔に並べる
+    const SIDES = ['top', 'bottom', 'left', 'right'];
+    const LONG_SIDES = ['top', 'bottom'];
+    const SHORT_SIDES = ['left', 'right'];
+
+    function sideCaps(desk) {
+      return (DESK_TYPES[desk.type] || DESK_TYPES[DEFAULT_TYPE]).caps;
+    }
+
+    function deskCapacity(desk) {
+      const caps = sideCaps(desk);
+      return SIDES.reduce((sum, k) => sum + caps[k], 0);
+    }
+
+    function sideCounts(desk) {
       const counts = { top: 0, bottom: 0, left: 0, right: 0 };
-      const assign = [];
-      for (let i = 0; i < n; i++) {
-        let side = null;
-        const longSides = order.filter(s => s.long && counts[s.key] < s.cap);
-        if (longSides.length) {
-          side = longSides.reduce((a, b) => (counts[b.key] < counts[a.key] ? b : a));
-        } else {
-          const rest = order.filter(s => counts[s.key] < s.cap);
-          side = rest.length
-            ? rest.reduce((a, b) => (counts[b.key] < counts[a.key] ? b : a))
-            : order.reduce((a, b) => (counts[b.key] < counts[a.key] ? b : a)); // 満席なら重ねて置く
-        }
-        assign.push({ side: side.key, idx: counts[side.key] });
-        counts[side.key]++;
+      desk.seats.forEach(s => { if (s.side in counts) counts[s.side]++; });
+      return counts;
+    }
+
+    // 椅子の少ない辺を返す（長い辺を優先）。full = true なら満員の辺も含める
+    function pickSide(desk, full) {
+      const caps = sideCaps(desk), counts = sideCounts(desk);
+      for (const group of [LONG_SIDES, SHORT_SIDES]) {
+        const ok = group.filter(k => caps[k] > 0 && (full || counts[k] < caps[k]));
+        if (ok.length) return ok.reduce((a, b) => (counts[b] < counts[a] ? b : a));
       }
-      return assign.map(({ side, idx }) => {
-        const m = counts[side];
-        switch (side) {
-          case 'top':    return { x: w * (idx + 1) / (m + 1), y: -off };
-          case 'bottom': return { x: w * (idx + 1) / (m + 1), y: h + off };
-          case 'left':   return { x: -off, y: h * (idx + 1) / (m + 1) };
-          default:       return { x: w + off, y: h * (idx + 1) / (m + 1) };
-        }
+      return null;
+    }
+
+    // 空いている辺（満員なら null）
+    function freeSide(desk) {
+      return pickSide(desk, false);
+    }
+
+    // 辺が決まっていない椅子や、上限を超えた辺の椅子に辺を割り当て直す
+    // 机全体が満員のときは、椅子を減らさずに長い辺へ重ねて置く（定員オーバー表示になる）
+    function normalizeSides(desk) {
+      const caps = sideCaps(desk);
+      const counts = { top: 0, bottom: 0, left: 0, right: 0 };
+      desk.seats.forEach(s => {
+        if (SIDES.includes(s.side) && counts[s.side] < caps[s.side]) counts[s.side]++;
+        else delete s.side;
+      });
+      desk.seats.forEach(s => {
+        if (!s.side) s.side = freeSide(desk) || pickSide(desk, true) || 'top';
       });
     }
 
-    // ===== 椅子の位置調整 =====
-    const CHAIR_GRID = 5;     // ドラッグで動かすときのマス目
-    const CHAIR_REACH = 60;   // 机の端から離せる距離
+    // 辺の上の位置（t = 0〜1、off = 机の端からの距離）。机の左上からの相対座標
+    function sidePoint(side, t, w, h, off) {
+      switch (side) {
+        case 'top':    return { x: w * t, y: -off };
+        case 'bottom': return { x: w * t, y: h + off };
+        case 'left':   return { x: -off, y: h * t };
+        default:       return { x: w + off, y: h * t };
+      }
+    }
 
-    // 椅子の位置（手で動かしていれば保存した位置、なければ自動配置）
-    function seatPos(desk, idx) {
-      const s = desk.seats[idx];
-      if (s && Number.isFinite(s.dx) && Number.isFinite(s.dy)) return { x: s.dx, y: s.dy };
+    // 各椅子の位置（机の左上からの相対座標）を、椅子の並び順で返す
+    function chairLayout(desk) {
       const { w, h } = deskSize(desk);
-      return chairPositions(w, h, desk.seats.length)[idx];
+      const off = CHAIR_SIZE / 2 + 3;
+      const groups = { top: [], bottom: [], left: [], right: [] };
+      desk.seats.forEach((s, i) => (groups[s.side] || groups.top).push(i));
+      const pos = [];
+      SIDES.forEach(k => {
+        const m = groups[k].length;
+        groups[k].forEach((seatIdx, j) => {
+          pos[seatIdx] = sidePoint(k, (j + 1) / (m + 1), w, h, off);
+        });
+      });
+      return pos;
     }
 
     // 画面上の移動量 → 机の向きに合わせた移動量（机が回転していても見た目どおりに動かす）
@@ -418,28 +441,49 @@
       return { x: sx * cos + sy * sin, y: -sx * sin + sy * cos };
     }
 
-    function clampChair(desk, p) {
+    // 机の左上からの相対座標 p に一番近い辺（椅子を置けない辺は除く）
+    function nearestSide(desk, p) {
       const { w, h } = deskSize(desk);
-      return {
-        x: Math.max(-CHAIR_REACH, Math.min(w + CHAIR_REACH, p.x)),
-        y: Math.max(-CHAIR_REACH, Math.min(h + CHAIR_REACH, p.y)),
+      const caps = sideCaps(desk);
+      const cx = Math.max(0, Math.min(w, p.x));
+      const cy = Math.max(0, Math.min(h, p.y));
+      const dist = {
+        top: Math.hypot(p.x - cx, p.y),
+        bottom: Math.hypot(p.x - cx, p.y - h),
+        left: Math.hypot(p.x, p.y - cy),
+        right: Math.hypot(p.x - w, p.y - cy),
       };
+      return SIDES.filter(k => caps[k] > 0).reduce((a, b) => (dist[b] < dist[a] ? b : a));
     }
 
-    function chairEl(deskId, idx) {
-      const deskEl = deskEls.get(deskId);
-      return deskEl ? deskEl.querySelectorAll('.chair')[idx] : null;
+    // 辺に沿った位置（上下の辺なら x、左右の辺なら y）
+    function alongSide(side, p) {
+      return side === 'top' || side === 'bottom' ? p.x : p.y;
     }
 
-    // 選択中の椅子が、まだ存在するか確認する
-    function validSelectedChair() {
-      if (!selectedChair) return null;
-      const desk = desks.find(d => d.id === selectedChair.deskId);
-      if (!desk || !desk.seats[selectedChair.idx] || mode !== 'edit') {
-        selectedChair = null;
-        return null;
+    // 椅子を指定の辺へ移す。同じ辺の中では、落とした位置の順に並べる
+    function placeSeatOnSide(desk, idx, side, along) {
+      const seat = desk.seats[idx];
+      if (!seat) return;
+      const caps = sideCaps(desk), counts = sideCounts(desk);
+      if (seat.side !== side && counts[side] >= caps[side]) {
+        message.textContent = `その辺はもう満員です（最大 ${caps[side]} つ）。`;
+        render();
+        return;
       }
-      return { desk, idx: selectedChair.idx };
+      desk.seats.splice(idx, 1);
+      seat.side = side;
+      const layout = chairLayout(desk);
+      let insertAt = -1, lastSame = -1;
+      desk.seats.forEach((s, i) => {
+        if (s.side !== side || insertAt >= 0) return;
+        if (alongSide(side, layout[i]) > along) insertAt = i;
+        else lastSame = i;
+      });
+      if (insertAt < 0) insertAt = lastSame >= 0 ? lastSame + 1 : desk.seats.length;
+      desk.seats.splice(insertAt, 0, seat);
+      message.textContent = '';
+      commit();
     }
 
     // ===== 椅子の移動 =====
@@ -447,31 +491,40 @@
       const fromDesk = desks.find(d => d.id === fromDeskId);
       const toDesk = desks.find(d => d.id === toDeskId);
       if (!fromDesk || !toDesk || fromDesk === toDesk) return;
-      if (toDesk.seats.length >= 50) return;
+      const side = freeSide(toDesk);
+      if (!side) {
+        message.textContent = `${toDesk.name} は満員です（最大 ${deskCapacity(toDesk)} 席）。`;
+        return;
+      }
       const movedSeat = fromDesk.seats.splice(seatIndex, 1)[0];
       if (!movedSeat) return;
-      // 別の机に移したら、移動先では自動配置に戻す
-      delete movedSeat.dx;
-      delete movedSeat.dy;
+      movedSeat.side = side;   // 移動先では空いている辺に置く
       toDesk.seats.push(movedSeat);
       fromDesk.seatCount = fromDesk.seats.length;
       toDesk.seatCount = toDesk.seats.length;
       commit();
     }
 
-    function addSeatToDesk(desk) {
+    // side を省略すると、空いている辺（長い辺を優先）に追加する
+    function addSeatToDesk(desk, side) {
       if (!desk) return;
       if (remainingSeats <= 0) {
         message.textContent = '残り椅子がありません。';
         return;
       }
-      if (desk.seats.length >= 50) {
-        message.textContent = 'この机の椅子は最大です。';
+      const target = side || freeSide(desk);
+      if (!target || sideCounts(desk)[target] >= sideCaps(desk)[target]) {
+        message.textContent = side
+          ? `その辺はもう満員です（最大 ${sideCaps(desk)[side]} つ）。`
+          : `${desk.name} は満員です（最大 ${deskCapacity(desk)} 席）。`;
         return;
       }
-      desk.seats.push(createSeat(`${desk.name}-seat-${desk.seats.length + 1}`));
+      const seat = createSeat(`${desk.name}-seat-${desk.seats.length + 1}`);
+      seat.side = target;
+      desk.seats.push(seat);
       desk.seatCount = desk.seats.length;
       remainingSeats -= 1;
+      message.textContent = '';
       commit();
     }
 
@@ -479,11 +532,39 @@
       if (!desk || desk.seats.length === 0) return;
       const i = idx == null ? desk.seats.length - 1 : idx;
       if (!desk.seats.splice(i, 1)[0]) return;
-      selectedChair = null;   // 番号がずれるので椅子の選択は解除
       desk.seatCount = desk.seats.length;
       remainingSeats += 1;
       message.textContent = `椅子をプールに戻しました。残り椅子: ${remainingSeats}`;
       commit();
+    }
+
+    // ===== 辺の「＋」ボタン（配置編集モードで机を1台選択中） =====
+    function refreshSideButtons() {
+      floorEl.querySelectorAll('.side-add').forEach(el => el.remove());
+      if (mode !== 'edit' || selectedIds.size !== 1) return;
+      const desk = selectedDesk();
+      const deskEl = desk && deskEls.get(desk.id);
+      if (!deskEl) return;
+      const { w, h } = deskSize(desk);
+      const caps = sideCaps(desk), counts = sideCounts(desk);
+      SIDES.forEach(k => {
+        if (counts[k] >= caps[k]) return;   // 満員・置けない辺には出さない
+        const p = sidePoint(k, 0.5, w, h, CHAIR_SIZE + 16);
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'side-add';
+        btn.textContent = '＋';
+        btn.title = `この辺に椅子を追加（${counts[k]} / ${caps[k]}）`;
+        btn.style.left = `${p.x - 10}px`;
+        btn.style.top = `${p.y - 10}px`;
+        btn.style.transform = `rotate(${-desk.rotation}deg)`;
+        btn.addEventListener('pointerdown', e => e.stopPropagation());
+        btn.addEventListener('click', e => {
+          e.stopPropagation();
+          addSeatToDesk(desk, k);
+        });
+        deskEl.appendChild(btn);
+      });
     }
 
     // ===== 描画 =====
@@ -513,7 +594,8 @@
         name.textContent = desk.name;
         const info = document.createElement('span');
         info.className = 'desk-info';
-        info.textContent = `${desk.status === 'occupied' ? '使用中' : '空席'} / ${desk.seats.length}席`;
+        const over = desk.seats.length > deskCapacity(desk);
+        info.textContent = `${desk.status === 'occupied' ? '使用中' : '空席'} / ${desk.seats.length}席` + (over ? ' ⚠' : '');
         label.append(name, info);
         deskEl.append(label);
 
@@ -540,31 +622,30 @@
         });
 
         // 椅子
+        const layout = chairLayout(desk);
         desk.seats.forEach((seat, idx) => {
-          const pos = seatPos(desk, idx);
+          const pos = layout[idx];
           const chair = document.createElement('div');
-          const isSelected = selectedChair && selectedChair.deskId === desk.id && selectedChair.idx === idx;
-          chair.className = 'chair' + (isSelected ? ' selected' : '');
-          chair.dataset.deskId = desk.id;
-          chair.dataset.idx = idx;
+          chair.className = 'chair';
           chair.textContent = idx + 1;
           chair.style.left = `${pos.x}px`;
           chair.style.top = `${pos.y}px`;
           chair.style.transform = upright;
           chair.title = mode === 'edit'
-            ? 'ドラッグ・矢印キーで位置を調整できます'
+            ? 'ドラッグして別の辺へ移動、ダブルクリックでプールに戻ります'
             : 'ダブルクリックするとプールに戻ります';
           chair.draggable = mode === 'normal';
           chair.addEventListener('pointerdown', e => {
             e.stopPropagation();
             if (mode !== 'edit' || e.button !== 0) return;
-            // 配置編集モード：椅子を選択して位置を調整する
+            // 配置編集モード：椅子をドラッグして別の辺へ移す
             e.preventDefault();
-            selectedChair = { deskId: desk.id, idx };
-            selectedIds = new Set([desk.id]);
-            refreshSelection();
+            if (!selectedIds.has(desk.id) || selectedIds.size !== 1) {
+              selectedIds = new Set([desk.id]);
+              refreshSelection();
+            }
             chair.setPointerCapture(e.pointerId);
-            const cur = seatPos(desk, idx);
+            const cur = chairLayout(desk)[idx];
             chairDrag = { desk, idx, el: chair, startX: e.clientX, startY: e.clientY, origX: cur.x, origY: cur.y, pos: cur, moved: false };
           });
           chair.addEventListener('dragstart', e => {
@@ -580,7 +661,6 @@
           chair.addEventListener('dblclick', e => {
             e.preventDefault();
             e.stopPropagation();
-            if (mode !== 'normal') return;
             removeSeatFromDesk(desk, idx);
           });
           deskEl.appendChild(chair);
@@ -590,6 +670,7 @@
       });
 
       updatePanel();
+      refreshSideButtons();
       updateStatus();
     }
 
@@ -601,11 +682,8 @@
     // 選択状態だけを画面に反映する（全体の再描画はしない）
     function refreshSelection() {
       deskEls.forEach((el, id) => el.classList.toggle('selected', selectedIds.has(id)));
-      const sc = validSelectedChair();
-      floorEl.querySelectorAll('.chair').forEach(el => {
-        el.classList.toggle('selected', !!sc && el.dataset.deskId === sc.desk.id && Number(el.dataset.idx) === sc.idx);
-      });
       updatePanel();
+      refreshSideButtons();
     }
 
     // 画面上の座標 → 見取り図の座標
@@ -628,7 +706,6 @@
     // ===== 机のドラッグ（Pointer Eventsでタッチにも対応） =====
     function onDeskPointerDown(e, desk, deskEl) {
       if (e.button !== 0) return;
-      selectedChair = null;
 
       // 配置編集モードで Shift / Ctrl を押しながらクリック：選択に追加・解除
       if (mode === 'edit' && (e.shiftKey || e.ctrlKey || e.metaKey)) {
@@ -672,13 +749,10 @@
       } else if (chairDrag) {
         const d = chairDrag;
         const l = screenToLocal(d.desk, (e.clientX - d.startX) / floorScale, (e.clientY - d.startY) / floorScale);
-        d.pos = clampChair(d.desk, {
-          x: Math.round((d.origX + l.x) / CHAIR_GRID) * CHAIR_GRID,
-          y: Math.round((d.origY + l.y) / CHAIR_GRID) * CHAIR_GRID,
-        });
+        d.pos = { x: d.origX + l.x, y: d.origY + l.y };
         d.el.style.left = `${d.pos.x}px`;
         d.el.style.top = `${d.pos.y}px`;
-        if (d.pos.x !== d.origX || d.pos.y !== d.origY) d.moved = true;
+        if (Math.hypot(d.pos.x - d.origX, d.pos.y - d.origY) > 3) d.moved = true;
       } else if (marquee) {
         updateMarquee(toFloorPoint(e));
       }
@@ -693,11 +767,10 @@
       if (chairDrag) {
         const d = chairDrag;
         chairDrag = null;
-        const seat = d.desk.seats[d.idx];
-        if (d.moved && seat) {
-          seat.dx = d.pos.x;
-          seat.dy = d.pos.y;
-          saveData();
+        if (d.moved) {
+          // 放した位置に一番近い辺へ移す
+          const side = nearestSide(d.desk, d.pos);
+          placeSeatOnSide(d.desk, d.idx, side, alongSide(side, d.pos));
         }
       }
       if (marquee) {
@@ -715,7 +788,6 @@
     // ===== 範囲選択（見取り図の何もないところからドラッグ） =====
     floorEl.addEventListener('pointerdown', e => {
       if (e.target !== floorEl || e.button !== 0) return;
-      selectedChair = null;
       if (mode !== 'edit') {
         // 通常モードでは選択解除のみ
         selectedIds = new Set();
@@ -784,10 +856,9 @@
       }
       const desk = list[0];
       if (!desk) return;
-      const sc = validSelectedChair();
-      panelName.textContent = sc && sc.desk === desk
-        ? `${desk.name} の椅子 ${sc.idx + 1}（ドラッグ・矢印キーで位置調整）`
-        : `${desk.name}（${desk.seats.length}席）`;
+      const cap = deskCapacity(desk);
+      panelName.textContent = `${desk.name}（${desk.seats.length} / ${cap}席）`
+        + (desk.seats.length > cap ? ' ⚠ 定員オーバー：椅子を減らしてください' : '');
       statusBtn.textContent = desk.status === 'occupied' ? '使用中 → 空席にする' : '空席 → 使用中にする';
       if (document.activeElement !== nameInput) nameInput.value = desk.name;
       typeSelect.value = desk.type;
@@ -820,7 +891,22 @@
     typeSelect.addEventListener('change', () => {
       const desk = selectedDesk();
       if (!desk) return;
+      const oldType = desk.type;
       desk.type = typeSelect.value;
+      const cap = deskCapacity(desk);
+      const extra = desk.seats.length - cap;
+      if (extra > 0) {
+        const ok = confirm(`${DESK_TYPES[desk.type].label}には椅子を ${cap} つまでしか置けません。\n多い ${extra} つを残り椅子に戻しますか？`);
+        if (!ok) {
+          desk.type = oldType;
+          typeSelect.value = oldType;
+          return;
+        }
+        desk.seats.splice(cap);
+        desk.seatCount = desk.seats.length;
+        remainingSeats += extra;
+      }
+      normalizeSides(desk);
       clampDesk(desk);
       commit();
     });
@@ -835,18 +921,6 @@
     }
     document.getElementById('rotateLeftBtn').addEventListener('click', () => rotateSelectedDesk(-45));
     document.getElementById('rotateRightBtn').addEventListener('click', () => rotateSelectedDesk(45));
-
-    // 椅子の位置を自動配置に戻す
-    document.getElementById('resetChairsBtn').addEventListener('click', () => {
-      const desk = selectedDesk();
-      if (!desk) return;
-      desk.seats.forEach(s => {
-        delete s.dx;
-        delete s.dy;
-      });
-      selectedChair = null;
-      commit();
-    });
 
     const deleteDeskBtn = document.getElementById('deleteDeskBtn');
     deleteDeskBtn.addEventListener('click', () => {
@@ -912,13 +986,11 @@
         : '';
       // 複数選択は配置編集モードだけなので、通常モードに戻るときは解除する
       if (mode === 'normal' && selectedIds.size > 1) selectedIds = new Set();
-      selectedChair = null;
       render();
     });
 
     // ===== 矢印キーで移動（配置編集モードのみ） =====
-    // 椅子を選択中ならその椅子を 5 ずつ、そうでなければ選択中の机を 10 ずつ動かす
-    // Shift を押しながらなら 1 ずつ動かす
+    // 選択中の机を 10 ずつ、Shift を押しながらなら 1 ずつ動かす
     const ARROW_KEYS = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
     let keySaveTimer = null;
 
@@ -937,30 +1009,10 @@
       if (deskDrag || marquee || chairDrag) return;
       const [ux, uy] = ARROW_KEYS[e.key];
 
-      // 椅子を選択中
-      const sc = validSelectedChair();
-      if (sc) {
-        e.preventDefault();   // ページのスクロールを止める
-        const step = e.shiftKey ? 1 : CHAIR_GRID;
-        const l = screenToLocal(sc.desk, ux * step, uy * step);
-        const cur = seatPos(sc.desk, sc.idx);
-        const p = clampChair(sc.desk, { x: Math.round(cur.x + l.x), y: Math.round(cur.y + l.y) });
-        const seat = sc.desk.seats[sc.idx];
-        seat.dx = p.x;
-        seat.dy = p.y;
-        const el = chairEl(sc.desk.id, sc.idx);
-        if (el) {
-          el.style.left = `${p.x}px`;
-          el.style.top = `${p.y}px`;
-        }
-        scheduleSave();
-        return;
-      }
-
       // 机を選択中
       const list = selectedDesks();
       if (list.length === 0) return;
-      e.preventDefault();
+      e.preventDefault();   // ページのスクロールを止める
       const step = e.shiftKey ? 1 : GRID;
       const { dx, dy } = clampDelta(groupMoveRange(list), ux * step, uy * step);
       if (dx === 0 && dy === 0) return;
