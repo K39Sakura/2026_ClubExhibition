@@ -79,6 +79,7 @@
               <span class="seat-map-key free"></span>空席
               <span class="seat-map-key occupied"></span>使用中
               <span id="seat-map-staff-key" hidden><span class="seat-map-key staff"></span>スタッフ</span>
+              <span id="seat-map-other-key" hidden><span class="seat-map-key other"></span>受付・置き場など</span>
             </div>
           </div>
           <p id="seat-status" style="color: #f0f6da;">現在の席状況: <span id="status-text">不明</span></p>  <!-- seat.htmlの内容を表示 -->
@@ -214,10 +215,22 @@
       }
       // 部屋の枠
       let html = `<rect class="room" x="2" y="2" width="${FLOOR_W - 4}" height="${FLOOR_H - 4}" rx="8"/>`;
+      let hasOther = false;
+      let purposeLabels = '';
       desks.forEach(d => {
         const { w, h } = deskSize(d);
         const cx = d.x + w / 2, cy = d.y + h / 2;
-        const cls = isStaffDesk(d, areas) ? 'staff' : (d.status === 'occupied' ? 'occupied' : 'free');
+        let cls = d.status === 'occupied' ? 'occupied' : 'free';
+        if (isStaffDesk(d, areas)) cls = 'staff';
+        else if (!isGuestDesk(d, areas)) {
+          cls = 'other';
+          hasOther = true;
+        }
+        // 用途の文字は傾けずに机の中央へ（机からはみ出してもよい。縁取りで読みやすくする）
+        if (d.purpose) {
+          const size = d.purpose.length > 6 ? 22 : 26;
+          purposeLabels += `<text class="purpose" x="${cx}" y="${cy}" font-size="${size}">${escapeXml(d.purpose)}</text>`;
+        }
         html += `<g class="${cls}" transform="rotate(${d.rotation} ${cx} ${cy})">`;
         html += `<rect class="desk" x="${d.x}" y="${d.y}" width="${w}" height="${h}" rx="5"/>`;
         chairLayout(d).forEach(p => {
@@ -225,6 +238,7 @@
         });
         html += '</g>';
       });
+      html += purposeLabels;
       // スタッフエリア（机より後に描いて一番前に表示する）。文字の大きさはエリアに収まるように調整
       areas.forEach(a => {
         const size = Math.max(14, Math.min(40, a.h * 0.4, a.w / Math.max(1, a.label.length) * 1.4));
@@ -241,6 +255,7 @@
       svg.innerHTML = html;
       wrap.hidden = false;
       document.getElementById('seat-map-staff-key').hidden = areas.length === 0;
+      document.getElementById('seat-map-other-key').hidden = !hasOther;
     }
 
     async function loadSeatStatus() {
@@ -259,9 +274,10 @@
           const statusText = document.getElementById('status-text');
           if (statusText) {
             // 使用中の机に置かれている椅子数を分子として計算
-            // スタッフエリアの机の椅子（staffSeats）は合計から外す
+            // スタッフエリアの机・受付など用途がプレイ以外の机の椅子（excludedSeats）は合計から外す
             const occupiedSeats = data.occupiedSeats || 0;
-            const guestSeats = Math.max(0, data.totalSeats - (data.staffSeats || 0));
+            const excludedSeats = data.excludedSeats ?? data.staffSeats ?? 0;
+            const guestSeats = Math.max(0, data.totalSeats - excludedSeats);
             const percentage = guestSeats > 0
               ? Math.round((occupiedSeats / guestSeats) * 100)
               : 0;

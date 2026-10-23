@@ -60,6 +60,8 @@
     .area.selected { outline: 3px solid #e08e0b; outline-offset: 2px; }
     .area-resize { position: absolute; right: 0; bottom: 0; width: 14px; height: 14px; background: #e08e0b; cursor: nwse-resize; border-radius: 3px 0 2px 0; }
     .desk.staff { background: #d5d5d5; border-color: #777; }
+    .desk.other { background: #f3e6c4; border-color: #a07f3a; }
+    .desk .desk-purpose { font-size: 10px; color: #333; pointer-events: none; }
     #addAreaBtn { background: #6b6b6b; }
 
     /* ===== 入口 ===== */
@@ -107,6 +109,11 @@
         <select id="typeSelect"></select>
         <button id="rotateLeftBtn" type="button" title="左に45°回転">⟲ 45°</button>
         <button id="rotateRightBtn" type="button" title="右に45°回転">⟳ 45°</button>
+      </span>
+      <span class="edit-only">
+        <label for="purposeSelect">用途</label>
+        <select id="purposeSelect"></select>
+        <input id="purposeInput" type="text" maxlength="16" placeholder="用途を入力" hidden>
       </span>
       <button id="deleteDeskBtn" type="button" class="danger">机を削除</button>
     </span>
@@ -174,6 +181,7 @@
         status: 'free',                        // 'free'または'occupied'
         seats,
         type: DEFAULT_TYPE,                    // 机の大きさ（DESK_TYPESのキー）
+        purpose: '',                           // 用途（受付・プレイエリアなど。空なら用途なし）
         rotation: 0,                           // 角度（0〜315、45°刻み）
         x: pos ? pos.x : null,                 // 見取り図上の左上座標
         y: pos ? pos.y : null,
@@ -248,8 +256,8 @@
     async function saveData() {
       lastLocalChange = Date.now();
 
-      // 使用中の机の椅子数と、スタッフエリアの机の椅子数（席数の計算から外す）
-      const { occupiedSeats, staffSeats } = countSeats(desks, areas);
+      // 使用中の机の椅子数と、席数の計算から外す椅子数（スタッフエリア・プレイ以外の用途の机）
+      const { occupiedSeats, staffSeats, otherSeats, excludedSeats } = countSeats(desks, areas);
 
       await saveDesksToCloud({
         totalDesks,
@@ -258,6 +266,8 @@
         remainingSeats,
         occupiedSeats,  // 使用中の机の椅子数（スタッフエリアの机は除く）
         staffSeats,     // スタッフエリアの机の椅子数
+        otherSeats,     // 受付・置き場など、用途がプレイ以外の机の椅子数
+        excludedSeats,  // 使用率・残り席数の計算から外す椅子数（staffSeats + otherSeats）
         desks,
         areas,
         entrances
@@ -450,8 +460,10 @@
       desks.forEach(desk => {
         const { w, h } = deskSize(desk);
         const staff = isStaffDesk(desk, areas);
+        const guest = isGuestDesk(desk, areas);
         const deskEl = document.createElement('div');
-        deskEl.className = `desk ${desk.status}` + (staff ? ' staff' : '') + (selectedIds.has(desk.id) ? ' selected' : '');
+        deskEl.className = `desk ${desk.status}` + (staff ? ' staff' : (guest ? '' : ' other'))
+          + (selectedIds.has(desk.id) ? ' selected' : '');
         deskEl.dataset.id = desk.id;
         deskEls.set(desk.id, deskEl);
         deskEl.style.left = `${desk.x}px`;
@@ -471,9 +483,18 @@
         const info = document.createElement('span');
         info.className = 'desk-info';
         const over = desk.seats.length > deskCapacity(desk);
-        const statusLabel = staff ? 'スタッフ' : (desk.status === 'occupied' ? '使用中' : '空席');
-        info.textContent = `${statusLabel} / ${desk.seats.length}席` + (over ? ' ⚠' : '');
-        label.append(name, info);
+        if (staff) info.textContent = `スタッフ / ${desk.seats.length}席`;
+        else if (!guest) info.textContent = `${desk.seats.length}席（席数外）`;
+        else info.textContent = `${desk.status === 'occupied' ? '使用中' : '空席'} / ${desk.seats.length}席`;
+        if (over) info.textContent += ' ⚠';
+        label.append(name);
+        if (desk.purpose) {
+          const purpose = document.createElement('span');
+          purpose.className = 'desk-purpose';
+          purpose.textContent = desk.purpose;
+          label.append(purpose);
+        }
+        label.append(info);
         deskEl.append(label);
 
         // 机の選択・ドラッグ（配置編集モードのみ移動）
@@ -782,6 +803,7 @@
       panelBody.hidden = list.length === 0;
       panelBody.classList.toggle('multi', list.length > 1);
       deleteDeskBtn.textContent = list.length > 1 ? 'まとめて削除' : '机を削除';
+      updatePurposeControls(list);
       if (list.length > 1) {
         panelName.textContent = `${list.length}台選択中（ドラッグでまとめて移動）`;
         return;
@@ -792,9 +814,10 @@
       panelName.textContent = `${desk.name}（${desk.seats.length} / ${cap}席）`
         + (desk.seats.length > cap ? ' ⚠ 定員オーバー：椅子を減らしてください' : '');
       statusBtn.textContent = desk.status === 'occupied' ? '使用中 → 空席にする' : '空席 → 使用中にする';
-      // スタッフエリアの机は席数に数えないので、空席 / 使用中の切り替えは出さない
-      statusBtn.hidden = isStaffDesk(desk, areas);
-      if (statusBtn.hidden) panelName.textContent += '（スタッフエリア）';
+      // スタッフエリアの机・プレイ以外の用途の机は席数に数えないので、空席 / 使用中の切り替えは出さない
+      statusBtn.hidden = !isGuestDesk(desk, areas);
+      if (isStaffDesk(desk, areas)) panelName.textContent += '（スタッフエリア）';
+      else if (statusBtn.hidden) panelName.textContent += '（席数に数えない用途）';
       if (document.activeElement !== nameInput) nameInput.value = desk.name;
       typeSelect.value = desk.type;
     }
@@ -995,6 +1018,57 @@
       scheduleSave();
     });
 
+    // ===== 机の用途 =====
+    const purposeSelect = document.getElementById('purposeSelect');
+    const purposeInput = document.getElementById('purposeInput');
+    const PURPOSE_OTHER = '__other';
+
+    // 選択欄：（なし）・候補・その他（入力）
+    [['', '（なし）'], ...PURPOSES.map(p => [p, p]), [PURPOSE_OTHER, 'その他（入力）']].forEach(([value, text]) => {
+      const opt = document.createElement('option');
+      opt.value = value;
+      opt.textContent = text;
+      purposeSelect.appendChild(opt);
+    });
+
+    // 選択中の机の用途を、選択欄に反映する（複数選択で用途がバラバラなら空欄）
+    function updatePurposeControls(list) {
+      if ([purposeSelect, purposeInput].includes(document.activeElement)) return;
+      const values = [...new Set(list.map(d => d.purpose || ''))];
+      if (values.length !== 1) {
+        purposeSelect.selectedIndex = -1;
+        purposeInput.hidden = true;
+        return;
+      }
+      const v = values[0];
+      const custom = v !== '' && !PURPOSES.includes(v);
+      purposeSelect.value = custom ? PURPOSE_OTHER : v;
+      purposeInput.hidden = !custom;
+      purposeInput.value = custom ? v : '';
+    }
+
+    function applyPurpose(value) {
+      const list = selectedDesks();
+      if (list.length === 0) return;
+      const v = value.trim().slice(0, PURPOSE_MAX_LEN);
+      list.forEach(d => { d.purpose = v; });
+      commit();
+    }
+
+    purposeSelect.addEventListener('change', () => {
+      if (purposeSelect.value === PURPOSE_OTHER) {
+        // 「その他」：入力欄を出して、入力されたら反映する
+        purposeInput.hidden = false;
+        purposeInput.value = '';
+        purposeInput.focus();
+        return;
+      }
+      purposeInput.hidden = true;
+      applyPurpose(purposeSelect.value);
+    });
+
+    purposeInput.addEventListener('change', () => applyPurpose(purposeInput.value));
+
     // ===== スタッフエリア =====
     const areaPanel = document.getElementById('areaPanel');
     const areaLabelInput = document.getElementById('areaLabelInput');
@@ -1188,7 +1262,7 @@
     // 操作中・保存直後は、自分の変更が巻き戻らないよう読み込みを止める
     setInterval(async () => {
       const busy = () => deskDrag || marquee || chairDrag || areaDrag || entranceDrag || chairDragging || Date.now() - lastLocalChange < 4000;
-      const typing = [nameInput, areaLabelInput, entranceWidthInput].includes(document.activeElement);
+      const typing = [nameInput, areaLabelInput, entranceWidthInput, purposeSelect, purposeInput].includes(document.activeElement);
       if (busy() || typing) return;
       await loadData();
       if (busy()) return;

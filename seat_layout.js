@@ -17,6 +17,12 @@ const DESK_TYPES = {
 };
 const DEFAULT_TYPE = 'long';
 
+// 机の用途の候補（ここにない用途は「その他」で自由に入力できる）
+// 用途が「プレイエリア」か用途なしの机だけを、使用率・残り席数に数える
+const PLAY_PURPOSE = 'プレイエリア';
+const PURPOSES = ['受付', 'ボードゲーム置き場', PLAY_PURPOSE, '展示'];
+const PURPOSE_MAX_LEN = 16;
+
 // 回転前の机の幅・高さ
 function deskSize(desk) {
   const t = DESK_TYPES[desk.type] || DESK_TYPES[DEFAULT_TYPE];
@@ -188,6 +194,7 @@ function parseDesks(rawDesks) {
         })
       : [],
     type: DESK_TYPES[d.type] ? d.type : DEFAULT_TYPE,
+    purpose: typeof d.purpose === 'string' ? d.purpose.trim().slice(0, PURPOSE_MAX_LEN) : '',
     rotation: normalizeRotation(d.rotation),
     x: Number.isFinite(d.x) ? d.x : null,
     y: Number.isFinite(d.y) ? d.y : null,
@@ -239,15 +246,23 @@ function isStaffDesk(desk, areas) {
   return areas.some(a => cx >= a.x && cx <= a.x + a.w && cy >= a.y && cy <= a.y + a.h);
 }
 
-// 席数の集計（スタッフエリアの机は除く）
-// occupiedSeats: 使用中の机の椅子数、staffSeats: スタッフエリアの机の椅子数
+// お客さん用の机か（スタッフエリアの外にあり、用途が「プレイエリア」か用途なし）
+function isGuestDesk(desk, areas) {
+  return !isStaffDesk(desk, areas) && (!desk.purpose || desk.purpose === PLAY_PURPOSE);
+}
+
+// 席数の集計（お客さん用の机だけを数える）
+// occupiedSeats: 使用中の机の椅子数
+// staffSeats: スタッフエリアの机の椅子数、otherSeats: 受付・置き場など用途がプレイ以外の机の椅子数
+// excludedSeats: 使用率・残り席数の計算から外す椅子数（staffSeats + otherSeats）
 function countSeats(desks, areas) {
-  let occupiedSeats = 0, staffSeats = 0;
+  let occupiedSeats = 0, staffSeats = 0, otherSeats = 0;
   desks.forEach(d => {
     if (isStaffDesk(d, areas)) staffSeats += d.seats.length;
+    else if (!isGuestDesk(d, areas)) otherSeats += d.seats.length;
     else if (d.status === 'occupied') occupiedSeats += d.seats.length;
   });
-  return { occupiedSeats, staffSeats };
+  return { occupiedSeats, staffSeats, otherSeats, excludedSeats: staffSeats + otherSeats };
 }
 
 // ===== 入口 =====
