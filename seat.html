@@ -39,6 +39,7 @@
     .desk.drop-target { box-shadow: 0 0 0 4px #0288d1; }
     body.mode-edit .desk { cursor: move; }
     body.mode-normal .desk { cursor: pointer; }
+    .desk .desk-label { display: flex; flex-direction: column; align-items: center; white-space: nowrap; pointer-events: none; }
     .desk .desk-name { font-weight: 700; pointer-events: none; }
     .desk .desk-info { font-size: 12px; pointer-events: none; }
 
@@ -77,7 +78,8 @@
         <input id="nameInput" type="text" maxlength="12">
         <label for="typeSelect">大きさ</label>
         <select id="typeSelect"></select>
-        <button id="rotateBtn" type="button">回転</button>
+        <button id="rotateLeftBtn" type="button" title="左に45°回転">⟲ 45°</button>
+        <button id="rotateRightBtn" type="button" title="右に45°回転">⟳ 45°</button>
       </span>
       <button id="deleteDeskBtn" type="button" class="danger">机を削除</button>
     </span>
@@ -135,42 +137,64 @@
         status: 'free',                        // 'free'または'occupied'
         seats,
         type: DEFAULT_TYPE,                    // 机の大きさ（DESK_TYPESのキー）
-        rotation: 0,                           // 0 または 90
+        rotation: 0,                           // 角度（0〜315、45°刻み）
         x: pos ? pos.x : null,                 // 見取り図上の左上座標
         y: pos ? pos.y : null,
       };
     }
 
-    // 回転を考慮した机の幅・高さ
+    // 回転前の机の幅・高さ
     function deskSize(desk) {
       const t = DESK_TYPES[desk.type] || DESK_TYPES[DEFAULT_TYPE];
-      return desk.rotation === 90 ? { w: t.h, h: t.w } : { w: t.w, h: t.h };
+      return { w: t.w, h: t.h };
+    }
+
+    // 角度を 0〜315 の 45° 刻みにそろえる
+    function normalizeRotation(r) {
+      const n = Math.round((Number(r) || 0) / 45) * 45;
+      return ((n % 360) + 360) % 360;
+    }
+
+    // 回転後の机を囲む四角（見取り図上の座標）
+    // desk.x, desk.y は回転前の机の左上。回転は机の中心で行う
+    function deskBounds(desk) {
+      const { w, h } = deskSize(desk);
+      const rad = desk.rotation * Math.PI / 180;
+      const cos = Math.abs(Math.cos(rad)), sin = Math.abs(Math.sin(rad));
+      const bw = w * cos + h * sin;
+      const bh = w * sin + h * cos;
+      const cx = desk.x + w / 2, cy = desk.y + h / 2;
+      return { x: cx - bw / 2, y: cy - bh / 2, w: bw, h: bh };
     }
 
     function clampDesk(desk) {
       // 椅子が部屋からはみ出さないよう、壁から少し離す
-      const { w, h } = deskSize(desk);
       const pad = 30;
-      desk.x = Math.max(pad, Math.min(FLOOR_W - w - pad, desk.x));
-      desk.y = Math.max(pad, Math.min(FLOOR_H - h - pad, desk.y));
+      const b = deskBounds(desk);
+      const bx = Math.max(pad, Math.min(FLOOR_W - b.w - pad, b.x));
+      const by = Math.max(pad, Math.min(FLOOR_H - b.h - pad, b.y));
+      desk.x = Math.round(desk.x + bx - b.x);
+      desk.y = Math.round(desk.y + by - b.y);
     }
 
     // 他の机と重ならない空き場所を探す（見つからなければ左上）
+    // 戻り値は回転前の机の左上座標
     function findFreeSpot(desk) {
       const { w, h } = deskSize(desk);
+      const b0 = deskBounds({ ...desk, x: 0, y: 0 });   // 左上からのずれを求める
       const margin = CHAIR_SIZE + 10;   // 椅子の分だけ間をあける
-      for (let y = margin; y + h <= FLOOR_H; y += GRID * 2) {
-        for (let x = margin; x + w <= FLOOR_W; x += GRID * 2) {
+      for (let y = margin; y + b0.h <= FLOOR_H; y += GRID * 2) {
+        for (let x = margin; x + b0.w <= FLOOR_W; x += GRID * 2) {
           const hit = desks.some(o => {
             if (o === desk || o.x == null) return false;
-            const s = deskSize(o);
-            return x < o.x + s.w + margin && o.x < x + w + margin &&
-                   y < o.y + s.h + margin && o.y < y + h + margin;
+            const s = deskBounds(o);
+            return x < s.x + s.w + margin && s.x < x + b0.w + margin &&
+                   y < s.y + s.h + margin && s.y < y + b0.h + margin;
           });
-          if (!hit) return { x, y };
+          if (!hit) return { x: Math.round(x - b0.x), y: Math.round(y - b0.y) };
         }
       }
-      return { x: 0, y: 0 };
+      return { x: margin - b0.x, y: margin - b0.y };
     }
 
     // 位置が未設定の机（古いデータなど）を自動で並べる
@@ -236,7 +260,7 @@
               ? d.seats.map(s => ({ id: s.id || `${d.name}-seat` }))
               : [],
             type: DESK_TYPES[d.type] ? d.type : DEFAULT_TYPE,
-            rotation: d.rotation === 90 ? 90 : 0,
+            rotation: normalizeRotation(d.rotation),
             x: Number.isFinite(d.x) ? d.x : null,
             y: Number.isFinite(d.y) ? d.y : null,
           }));
@@ -386,14 +410,21 @@
         deskEl.style.top = `${desk.y}px`;
         deskEl.style.width = `${w}px`;
         deskEl.style.height = `${h}px`;
+        deskEl.style.transform = `rotate(${desk.rotation}deg)`;
+        // 文字は傾かないよう逆向きに回す
+        const upright = `rotate(${-desk.rotation}deg)`;
 
+        const label = document.createElement('span');
+        label.className = 'desk-label';
+        label.style.transform = upright;
         const name = document.createElement('span');
         name.className = 'desk-name';
         name.textContent = desk.name;
         const info = document.createElement('span');
         info.className = 'desk-info';
         info.textContent = `${desk.status === 'occupied' ? '使用中' : '空席'} / ${desk.seats.length}席`;
-        deskEl.append(name, info);
+        label.append(name, info);
+        deskEl.append(label);
 
         // 机の選択・ドラッグ（配置編集モードのみ移動）
         deskEl.addEventListener('pointerdown', e => onDeskPointerDown(e, desk, deskEl));
@@ -424,6 +455,7 @@
           chair.textContent = idx + 1;
           chair.style.left = `${pos.x}px`;
           chair.style.top = `${pos.y}px`;
+          chair.style.transform = upright;
           chair.title = 'ダブルクリックするとプールに戻ります';
           chair.draggable = mode === 'normal';
           chair.addEventListener('pointerdown', e => e.stopPropagation());
@@ -565,18 +597,16 @@
       commit();
     });
 
-    document.getElementById('rotateBtn').addEventListener('click', () => {
+    // 机を中心を軸に 45° ずつ回転させる（delta: -45 = 左回り, 45 = 右回り）
+    function rotateSelectedDesk(delta) {
       const desk = selectedDesk();
       if (!desk) return;
-      // 中心を軸に回転させる
-      const before = deskSize(desk);
-      desk.rotation = desk.rotation === 90 ? 0 : 90;
-      const after = deskSize(desk);
-      desk.x = Math.round((desk.x + (before.w - after.w) / 2) / GRID) * GRID;
-      desk.y = Math.round((desk.y + (before.h - after.h) / 2) / GRID) * GRID;
+      desk.rotation = normalizeRotation(desk.rotation + delta);
       clampDesk(desk);
       commit();
-    });
+    }
+    document.getElementById('rotateLeftBtn').addEventListener('click', () => rotateSelectedDesk(-45));
+    document.getElementById('rotateRightBtn').addEventListener('click', () => rotateSelectedDesk(45));
 
     document.getElementById('deleteDeskBtn').addEventListener('click', () => {
       const desk = selectedDesk();
