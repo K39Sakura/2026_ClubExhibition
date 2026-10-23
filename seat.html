@@ -46,6 +46,8 @@
     .chair { position: absolute; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%; background: #e8f4ff; border: 1px solid #5b7c93; box-sizing: border-box; font-size: 9px; display: flex; align-items: center; justify-content: center; }
     body.mode-normal .chair { cursor: grab; }
     .chair.dragging { opacity: 0.4; }
+    .marquee { position: absolute; border: 1px dashed #e08e0b; background: rgba(224, 142, 11, 0.12); pointer-events: none; }
+    #panelBody.multi .single-only { display: none !important; }
   </style>
 </head>
 <body class="mode-normal" style="background-color: #CED3DC;">
@@ -68,12 +70,12 @@
     <span class="hint" id="panelHint">机をクリックすると、ここで操作できます。</span>
     <span id="panelBody" hidden>
       <span class="panel-title" id="panelName"></span>
-      <span class="normal-only">
+      <span class="normal-only single-only">
         <button id="statusBtn" type="button">空席</button>
         <button id="panelAddSeatBtn" type="button">椅子＋</button>
         <button id="panelRemoveSeatBtn" type="button">椅子−</button>
       </span>
-      <span class="edit-only">
+      <span class="edit-only single-only">
         <label for="nameInput">名前</label>
         <input id="nameInput" type="text" maxlength="12">
         <label for="typeSelect">大きさ</label>
@@ -116,9 +118,11 @@
     let remainingDesks = 0;                                   // まだ使われていない机の数
     let remainingSeats = 0;                                   // まだ使われていない椅子の数
     let mode = 'normal';                                      // 'normal'（運用）または 'edit'（配置編集）
-    let selectedDeskId = null;
+    let selectedIds = new Set();                              // 選択中の机のID（複数可）
+    let deskEls = new Map();                                  // 机ID → 画面上の要素
     let floorScale = 1;
     let deskDrag = null;                                      // 机をドラッグ中の情報
+    let marquee = null;                                       // 範囲選択中の情報
     let chairDragging = false;
     let lastLocalChange = 0;                                  // 最後に自分が変更した時刻
 
@@ -167,14 +171,39 @@
       return { x: cx - bw / 2, y: cy - bh / 2, w: bw, h: bh };
     }
 
+    // 椅子が部屋からはみ出さないよう、机を壁から離す距離
+    const WALL_PAD = 30;
+
     function clampDesk(desk) {
-      // 椅子が部屋からはみ出さないよう、壁から少し離す
-      const pad = 30;
       const b = deskBounds(desk);
-      const bx = Math.max(pad, Math.min(FLOOR_W - b.w - pad, b.x));
-      const by = Math.max(pad, Math.min(FLOOR_H - b.h - pad, b.y));
+      const bx = Math.max(WALL_PAD, Math.min(FLOOR_W - b.w - WALL_PAD, b.x));
+      const by = Math.max(WALL_PAD, Math.min(FLOOR_H - b.h - WALL_PAD, b.y));
       desk.x = Math.round(desk.x + bx - b.x);
       desk.y = Math.round(desk.y + by - b.y);
+    }
+
+    // 複数の机をまとめて動かせる範囲（どれか1台が壁に当たるまで）
+    function groupMoveRange(list) {
+      const r = { minDx: -Infinity, maxDx: Infinity, minDy: -Infinity, maxDy: Infinity };
+      list.forEach(d => {
+        const b = deskBounds(d);
+        r.minDx = Math.max(r.minDx, WALL_PAD - b.x);
+        r.maxDx = Math.min(r.maxDx, FLOOR_W - WALL_PAD - (b.x + b.w));
+        r.minDy = Math.max(r.minDy, WALL_PAD - b.y);
+        r.maxDy = Math.min(r.maxDy, FLOOR_H - WALL_PAD - (b.y + b.h));
+      });
+      // 元々はみ出している机があっても、動かせなくならないようにする
+      // 座標が小数にならないよう内側に丸める
+      r.minDx = Math.min(Math.ceil(r.minDx), 0); r.maxDx = Math.max(Math.floor(r.maxDx), 0);
+      r.minDy = Math.min(Math.ceil(r.minDy), 0); r.maxDy = Math.max(Math.floor(r.maxDy), 0);
+      return r;
+    }
+
+    function clampDelta(range, dx, dy) {
+      return {
+        dx: Math.max(range.minDx, Math.min(range.maxDx, dx)),
+        dy: Math.max(range.minDy, Math.min(range.maxDy, dy)),
+      };
     }
 
     // 他の机と重ならない空き場所を探す（見つからなければ左上）
@@ -400,12 +429,14 @@
     // ===== 描画 =====
     function render() {
       floorEl.innerHTML = '';
+      deskEls = new Map();
 
       desks.forEach(desk => {
         const { w, h } = deskSize(desk);
         const deskEl = document.createElement('div');
-        deskEl.className = `desk ${desk.status}` + (desk.id === selectedDeskId ? ' selected' : '');
+        deskEl.className = `desk ${desk.status}` + (selectedIds.has(desk.id) ? ' selected' : '');
         deskEl.dataset.id = desk.id;
+        deskEls.set(desk.id, deskEl);
         deskEl.style.left = `${desk.x}px`;
         deskEl.style.top = `${desk.y}px`;
         deskEl.style.width = `${w}px`;
@@ -485,50 +516,135 @@
       updateStatus();
     }
 
+    // ===== 選択 =====
+    function selectedDesks() {
+      return desks.filter(d => selectedIds.has(d.id));
+    }
+
+    // 選択状態だけを画面に反映する（全体の再描画はしない）
+    function refreshSelection() {
+      deskEls.forEach((el, id) => el.classList.toggle('selected', selectedIds.has(id)));
+      updatePanel();
+    }
+
+    // 画面上の座標 → 見取り図の座標
+    function toFloorPoint(e) {
+      const rect = floorEl.getBoundingClientRect();
+      return {
+        x: (e.clientX - rect.left) / floorScale - floorEl.clientLeft,
+        y: (e.clientY - rect.top) / floorScale - floorEl.clientTop,
+      };
+    }
+
+    // 机の要素の位置を、データに合わせて更新する
+    function placeDeskEl(desk) {
+      const el = deskEls.get(desk.id);
+      if (!el) return;
+      el.style.left = `${desk.x}px`;
+      el.style.top = `${desk.y}px`;
+    }
+
     // ===== 机のドラッグ（Pointer Eventsでタッチにも対応） =====
     function onDeskPointerDown(e, desk, deskEl) {
       if (e.button !== 0) return;
-      if (selectedDeskId !== desk.id) {
-        selectedDeskId = desk.id;
-        document.querySelectorAll('.desk.selected').forEach(el => el.classList.remove('selected'));
-        deskEl.classList.add('selected');
-        updatePanel();
+
+      // 配置編集モードで Shift / Ctrl を押しながらクリック：選択に追加・解除
+      if (mode === 'edit' && (e.shiftKey || e.ctrlKey || e.metaKey)) {
+        if (selectedIds.has(desk.id)) selectedIds.delete(desk.id);
+        else selectedIds.add(desk.id);
+        refreshSelection();
+        return;
+      }
+
+      // 選択されていない机を押したら、その机だけを選択する
+      if (!selectedIds.has(desk.id)) {
+        selectedIds = new Set([desk.id]);
+        refreshSelection();
       }
       if (mode !== 'edit') return;
+
+      // 選択中の机をまとめてドラッグ
       e.preventDefault();
       deskEl.setPointerCapture(e.pointerId);
-      deskDrag = { desk, deskEl, startX: e.clientX, startY: e.clientY, origX: desk.x, origY: desk.y, moved: false };
+      const list = selectedDesks();
+      deskDrag = {
+        startX: e.clientX,
+        startY: e.clientY,
+        items: list.map(d => ({ desk: d, origX: d.x, origY: d.y })),
+        range: groupMoveRange(list),
+        moved: false,
+      };
     }
 
     floorEl.addEventListener('pointermove', e => {
-      if (!deskDrag) return;
-      const { desk, deskEl } = deskDrag;
-      const dx = (e.clientX - deskDrag.startX) / floorScale;
-      const dy = (e.clientY - deskDrag.startY) / floorScale;
-      desk.x = Math.round((deskDrag.origX + dx) / GRID) * GRID;
-      desk.y = Math.round((deskDrag.origY + dy) / GRID) * GRID;
-      clampDesk(desk);
-      deskEl.style.left = `${desk.x}px`;
-      deskEl.style.top = `${desk.y}px`;
-      if (desk.x !== deskDrag.origX || desk.y !== deskDrag.origY) deskDrag.moved = true;
-    });
-
-    function endDeskDrag() {
-      if (!deskDrag) return;
-      const moved = deskDrag.moved;
-      deskDrag = null;
-      if (moved) saveData();
-    }
-    floorEl.addEventListener('pointerup', endDeskDrag);
-    floorEl.addEventListener('pointercancel', endDeskDrag);
-
-    // 見取り図の何もないところをクリックで選択解除
-    floorEl.addEventListener('pointerdown', e => {
-      if (e.target === floorEl) {
-        selectedDeskId = null;
-        render();
+      if (deskDrag) {
+        const rawDx = Math.round((e.clientX - deskDrag.startX) / floorScale / GRID) * GRID;
+        const rawDy = Math.round((e.clientY - deskDrag.startY) / floorScale / GRID) * GRID;
+        const { dx, dy } = clampDelta(deskDrag.range, rawDx, rawDy);
+        deskDrag.items.forEach(it => {
+          it.desk.x = it.origX + dx;
+          it.desk.y = it.origY + dy;
+          placeDeskEl(it.desk);
+        });
+        if (dx !== 0 || dy !== 0) deskDrag.moved = true;
+      } else if (marquee) {
+        updateMarquee(toFloorPoint(e));
       }
     });
+
+    function endPointer() {
+      if (deskDrag) {
+        const moved = deskDrag.moved;
+        deskDrag = null;
+        if (moved) saveData();
+      }
+      if (marquee) {
+        const tiny = marquee.width < 3 && marquee.height < 3;
+        marquee.el.remove();
+        // 範囲を広げずにクリックしただけなら選択解除
+        if (tiny && !marquee.additive) selectedIds = new Set();
+        marquee = null;
+        refreshSelection();
+      }
+    }
+    floorEl.addEventListener('pointerup', endPointer);
+    floorEl.addEventListener('pointercancel', endPointer);
+
+    // ===== 範囲選択（見取り図の何もないところからドラッグ） =====
+    floorEl.addEventListener('pointerdown', e => {
+      if (e.target !== floorEl || e.button !== 0) return;
+      if (mode !== 'edit') {
+        // 通常モードでは選択解除のみ
+        selectedIds = new Set();
+        refreshSelection();
+        return;
+      }
+      e.preventDefault();
+      floorEl.setPointerCapture(e.pointerId);
+      const p = toFloorPoint(e);
+      const el = document.createElement('div');
+      el.className = 'marquee';
+      floorEl.appendChild(el);
+      const additive = e.shiftKey || e.ctrlKey || e.metaKey;
+      marquee = { el, startX: p.x, startY: p.y, width: 0, height: 0, additive, base: additive ? new Set(selectedIds) : new Set() };
+      updateMarquee(p);
+    });
+
+    function updateMarquee(p) {
+      const x = Math.min(marquee.startX, p.x), y = Math.min(marquee.startY, p.y);
+      const w = Math.abs(p.x - marquee.startX), h = Math.abs(p.y - marquee.startY);
+      Object.assign(marquee.el.style, { left: `${x}px`, top: `${y}px`, width: `${w}px`, height: `${h}px` });
+      marquee.width = w;
+      marquee.height = h;
+      // 枠に触れた机を選択する
+      const next = new Set(marquee.base);
+      desks.forEach(d => {
+        const b = deskBounds(d);
+        if (b.x < x + w && x < b.x + b.w && b.y < y + h && y < b.y + b.h) next.add(d.id);
+      });
+      selectedIds = next;
+      deskEls.forEach((el, id) => el.classList.toggle('selected', selectedIds.has(id)));
+    }
 
     // ===== 選択中の机の操作パネル =====
     const panelHint = document.getElementById('panelHint');
@@ -545,20 +661,26 @@
       typeSelect.appendChild(opt);
     });
 
+    // 1台だけ選択しているときはその机、それ以外は null
     function selectedDesk() {
-      return desks.find(d => d.id === selectedDeskId) || null;
+      const list = selectedDesks();
+      return list.length === 1 ? list[0] : null;
     }
 
     function updatePanel() {
-      const desk = selectedDesk();
-      if (!desk) {
-        selectedDeskId = null;
-        panelHint.hidden = false;
-        panelBody.hidden = true;
+      // 削除された机を選択から外す
+      selectedIds = new Set(selectedDesks().map(d => d.id));
+      const list = selectedDesks();
+      panelHint.hidden = list.length > 0;
+      panelBody.hidden = list.length === 0;
+      panelBody.classList.toggle('multi', list.length > 1);
+      deleteDeskBtn.textContent = list.length > 1 ? 'まとめて削除' : '机を削除';
+      if (list.length > 1) {
+        panelName.textContent = `${list.length}台選択中（ドラッグでまとめて移動）`;
         return;
       }
-      panelHint.hidden = true;
-      panelBody.hidden = false;
+      const desk = list[0];
+      if (!desk) return;
       panelName.textContent = `${desk.name}（${desk.seats.length}席）`;
       statusBtn.textContent = desk.status === 'occupied' ? '使用中 → 空席にする' : '空席 → 使用中にする';
       if (document.activeElement !== nameInput) nameInput.value = desk.name;
@@ -608,15 +730,19 @@
     document.getElementById('rotateLeftBtn').addEventListener('click', () => rotateSelectedDesk(-45));
     document.getElementById('rotateRightBtn').addEventListener('click', () => rotateSelectedDesk(45));
 
-    document.getElementById('deleteDeskBtn').addEventListener('click', () => {
-      const desk = selectedDesk();
-      if (!desk) return;
-      if (!confirm(`${desk.name} を削除しますか？（椅子はプールに戻ります）`)) return;
+    const deleteDeskBtn = document.getElementById('deleteDeskBtn');
+    deleteDeskBtn.addEventListener('click', () => {
+      const list = selectedDesks();
+      if (list.length === 0) return;
+      const label = list.length === 1 ? list[0].name : `${list.length}台の机`;
+      if (!confirm(`${label} を削除しますか？（椅子はプールに戻ります）`)) return;
       // 残り机に戻し、椅子も在庫へ戻す
-      remainingDesks += 1;
-      remainingSeats += desk.seats.length;
-      desks = desks.filter(d => d.id !== desk.id);
-      selectedDeskId = null;
+      list.forEach(desk => {
+        remainingDesks += 1;
+        remainingSeats += desk.seats.length;
+      });
+      desks = desks.filter(d => !selectedIds.has(d.id));
+      selectedIds = new Set();
       commit();
     });
 
@@ -634,7 +760,7 @@
       desk.y = spot.y;
       desks.push(desk);
       remainingDesks -= 1;
-      selectedDeskId = desk.id;
+      selectedIds = new Set([desk.id]);
       commit();
     });
 
@@ -663,7 +789,11 @@
       document.body.classList.toggle('mode-normal', mode === 'normal');
       modeBtn.classList.toggle('editing', mode === 'edit');
       modeBtn.textContent = mode === 'edit' ? '配置編集を終了' : '配置編集モードにする';
-      message.textContent = mode === 'edit' ? '配置編集モード：机をドラッグして動かせます。' : '';
+      message.textContent = mode === 'edit'
+        ? '配置編集モード：机をドラッグして動かせます。何もないところからドラッグすると範囲選択できます。'
+        : '';
+      // 複数選択は配置編集モードだけなので、通常モードに戻るときは解除する
+      if (mode === 'normal' && selectedIds.size > 1) selectedIds = new Set();
       render();
     });
 
@@ -677,11 +807,10 @@
     // ===== リアルタイム更新（2秒ごと） =====
     // 操作中・保存直後は、自分の変更が巻き戻らないよう読み込みを止める
     setInterval(async () => {
-      if (deskDrag || chairDragging) return;
-      if (document.activeElement === nameInput) return;
-      if (Date.now() - lastLocalChange < 4000) return;
+      const busy = () => deskDrag || marquee || chairDragging || Date.now() - lastLocalChange < 4000;
+      if (busy() || document.activeElement === nameInput) return;
       await loadData();
-      if (deskDrag || chairDragging || Date.now() - lastLocalChange < 4000) return;
+      if (busy()) return;
       render();
     }, 2000);
   </script>
