@@ -213,12 +213,6 @@
       }
       // 部屋の枠
       let html = `<rect class="room" x="2" y="2" width="${FLOOR_W - 4}" height="${FLOOR_H - 4}" rx="8"/>`;
-      // スタッフエリア（机の後ろに描く）。文字の大きさはエリアに収まるように調整
-      areas.forEach(a => {
-        const size = Math.max(14, Math.min(40, a.h * 0.4, a.w / Math.max(1, a.label.length) * 1.4));
-        html += `<g class="area"><rect x="${a.x}" y="${a.y}" width="${a.w}" height="${a.h}" rx="6"/>`;
-        html += `<text x="${a.x + a.w / 2}" y="${a.y + a.h / 2}" font-size="${size}">${escapeXml(a.label)}</text></g>`;
-      });
       desks.forEach(d => {
         const { w, h } = deskSize(d);
         const cx = d.x + w / 2, cy = d.y + h / 2;
@@ -229,6 +223,12 @@
           html += `<circle class="chair" cx="${d.x + p.x}" cy="${d.y + p.y}" r="${CHAIR_SIZE / 2}"/>`;
         });
         html += '</g>';
+      });
+      // スタッフエリア（机より後に描いて一番前に表示する）。文字の大きさはエリアに収まるように調整
+      areas.forEach(a => {
+        const size = Math.max(14, Math.min(40, a.h * 0.4, a.w / Math.max(1, a.label.length) * 1.4));
+        html += `<g class="area"><rect x="${a.x}" y="${a.y}" width="${a.w}" height="${a.h}" rx="6"/>`;
+        html += `<text x="${a.x + a.w / 2}" y="${a.y + a.h / 2}" font-size="${size}">${escapeXml(a.label)}</text></g>`;
       });
       svg.innerHTML = html;
       wrap.hidden = false;
