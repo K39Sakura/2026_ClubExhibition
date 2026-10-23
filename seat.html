@@ -32,7 +32,7 @@
     #floor { position: absolute; left: 0; top: 0; transform-origin: 0 0; background: #f4f1ea; border: 3px solid #5b5b5b; box-sizing: border-box; border-radius: 4px; }
     body.mode-edit #floor { background-color: #fbf8f1; background-image: linear-gradient(#e2ddd2 1px, transparent 1px), linear-gradient(90deg, #e2ddd2 1px, transparent 1px); background-size: 20px 20px; }
 
-    .desk { position: absolute; box-sizing: border-box; border-radius: 5px; border: 2px solid; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 11px; line-height: 1.15; user-select: none; touch-action: none; }
+    .desk { position: absolute; box-sizing: border-box; border-radius: 5px; border: 2px solid; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 12px; line-height: 1.15; user-select: none; touch-action: none; }
     .desk.free { background: #AED9E0; border-color: #37718E; }
     .desk.occupied { background: #FFA69E; border-color: #C33C54; }
     .desk.selected { outline: 3px solid #e08e0b; outline-offset: 3px; }
@@ -41,9 +41,9 @@
     body.mode-normal .desk { cursor: pointer; }
     .desk .desk-label { display: flex; flex-direction: column; align-items: center; white-space: nowrap; pointer-events: none; }
     .desk .desk-name { font-weight: 700; pointer-events: none; }
-    .desk .desk-info { font-size: 10px; pointer-events: none; }
+    .desk .desk-info { font-size: 11px; pointer-events: none; }
 
-    .chair { position: absolute; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%; background: #e8f4ff; border: 1px solid #5b7c93; box-sizing: border-box; font-size: 9px; display: flex; align-items: center; justify-content: center; }
+    .chair { position: absolute; width: 20px; height: 20px; margin: -10px 0 0 -10px; border-radius: 50%; background: #e8f4ff; border: 1px solid #5b7c93; box-sizing: border-box; font-size: 10px; display: flex; align-items: center; justify-content: center; }
     body.mode-normal .chair { cursor: grab; }
     .chair.dragging { opacity: 0.4; }
     .marquee { position: absolute; border: 1px dashed #e08e0b; background: rgba(224, 142, 11, 0.12); pointer-events: none; }
@@ -102,12 +102,12 @@
     const FLOOR_W = 1000;
     const FLOOR_H = 600;
     const GRID = 10;                                          // 机を動かすときのマス目
-    const CHAIR_SIZE = 18;                                    // .chair の width/height と合わせる
+    const CHAIR_SIZE = 20;                                    // .chair の width/height と合わせる
     const DESK_TYPES = {
-      long:   { label: '長机',   w: 110, h: 36 },
-      medium: { label: '中机',   w: 70,  h: 36 },
-      square: { label: '正方形', w: 55,  h: 55 },
-      big:    { label: '大机',   w: 110, h: 70 },
+      long:   { label: '長机',   w: 145, h: 48 },
+      medium: { label: '中机',   w: 95,  h: 48 },
+      square: { label: '正方形', w: 70,  h: 70 },
+      big:    { label: '大机',   w: 145, h: 95 },
     };
     const DEFAULT_TYPE = 'long';
 
