@@ -61,6 +61,15 @@
     .area-resize { position: absolute; right: 0; bottom: 0; width: 14px; height: 14px; background: #e08e0b; cursor: nwse-resize; border-radius: 3px 0 2px 0; }
     .desk.staff { background: #d5d5d5; border-color: #777; }
     #addAreaBtn { background: #6b6b6b; }
+
+    /* ===== 入口 ===== */
+    .entrance { position: absolute; box-sizing: border-box; background: #43a047; border: 2px solid #2e7d32; border-radius: 3px; z-index: 2; touch-action: none; }
+    .entrance-label { position: absolute; transform: translate(-50%, -50%); z-index: 2; color: #2e7d32; font-size: 14px; font-weight: 700; white-space: nowrap; pointer-events: none; user-select: none; }
+    body.mode-normal .entrance { pointer-events: none; }
+    body.mode-edit .entrance { cursor: grab; }
+    .entrance.selected { outline: 3px solid #e08e0b; outline-offset: 2px; }
+    #addEntranceBtn { background: #2e7d32; }
+    #addEntranceBtn:hover { background: #1b5e20; }
     #addAreaBtn:hover { background: #4a4a4a; }
   </style>
 </head>
@@ -74,6 +83,7 @@
     <button id="refreshBtn" type="button">更新</button>
     <button id="modeBtn" type="button">配置編集モードにする</button>
     <span class="edit-only"><button id="addAreaBtn" type="button">スタッフエリアを追加</button></span>
+    <span class="edit-only"><button id="addEntranceBtn" type="button">入口を追加</button></span>
   </div>
   <div>机をクリックで選択。椅子はダブルクリックで削除（プールに戻る）、ドラッグ＆ドロップで机間移動可能。</div>
   <div>机の位置・大きさ・向きを変えるときは<strong>配置編集モード</strong>に切り替えて、机をドラッグしてください。</div>
@@ -107,6 +117,13 @@
       <span class="hint">ドラッグで移動、右下の角で大きさを変更</span>
       <button id="deleteAreaBtn" type="button" class="danger">エリアを削除</button>
     </span>
+    <span id="entrancePanel" hidden>
+      <span class="panel-title">入口</span>
+      <label for="entranceWidthInput">幅</label>
+      <input id="entranceWidthInput" type="number" min="40" max="300" step="10" style="width: 5rem;">
+      <span class="hint">ドラッグで壁に沿って移動（近い壁に吸い付く）</span>
+      <button id="deleteEntranceBtn" type="button" class="danger">入口を削除</button>
+    </span>
   </div>
 
   <div id="floorWrap">
@@ -138,6 +155,9 @@
     let areas = [];                                           // スタッフエリア
     let selectedAreaId = null;                                // 選択中のスタッフエリア
     let areaDrag = null;                                      // エリアを移動・大きさ変更中の情報
+    let entrances = [];                                       // 入口
+    let selectedEntranceId = null;                            // 選択中の入口
+    let entranceDrag = null;                                  // 入口をドラッグ中の情報
 
     function createSeat(id) {
       return { id };
@@ -218,6 +238,7 @@
 
           desks = parseDesks(parsed.desks);
           areas = parseAreas(parsed.areas);
+          entrances = parseEntrances(parsed.entrances);
         }
       } catch (e) {
         console.warn("クラウド読み込み失敗", e);
@@ -238,7 +259,8 @@
         occupiedSeats,  // 使用中の机の椅子数（スタッフエリアの机は除く）
         staffSeats,     // スタッフエリアの机の椅子数
         desks,
-        areas
+        areas,
+        entrances
       });
       lastLocalChange = Date.now();
     }
@@ -524,6 +546,20 @@
         floorEl.appendChild(deskEl);
       });
 
+      // 入口（壁の上に一番手前で描く）
+      entrances.forEach(ent => {
+        const el = document.createElement('div');
+        el.className = 'entrance' + (ent.id === selectedEntranceId ? ' selected' : '');
+        el.dataset.id = ent.id;
+        el.title = '入口';
+        const label = document.createElement('span');
+        label.className = 'entrance-label';
+        label.textContent = '入口';
+        placeEntranceEl(ent, el, label);
+        el.addEventListener('pointerdown', e => onEntrancePointerDown(e, ent, el, label));
+        floorEl.append(el, label);
+      });
+
       updatePanel();
       refreshSideButtons();
       updateStatus();
@@ -562,6 +598,7 @@
     function onDeskPointerDown(e, desk, deskEl) {
       if (e.button !== 0) return;
       clearAreaSelection();
+      clearEntranceSelection();
 
       // 配置編集モードで Shift / Ctrl を押しながらクリック：選択に追加・解除
       if (mode === 'edit' && (e.shiftKey || e.ctrlKey || e.metaKey)) {
@@ -602,6 +639,8 @@
           placeDeskEl(it.desk);
         });
         if (dx !== 0 || dy !== 0) deskDrag.moved = true;
+      } else if (entranceDrag) {
+        moveEntranceDrag(e);
       } else if (areaDrag) {
         moveAreaDrag(e);
       } else if (chairDrag) {
@@ -617,6 +656,11 @@
     });
 
     function endPointer() {
+      if (entranceDrag) {
+        const moved = entranceDrag.moved;
+        entranceDrag = null;
+        if (moved) saveData();
+      }
       if (areaDrag) {
         const moved = areaDrag.moved;
         areaDrag = null;
@@ -653,6 +697,7 @@
     floorEl.addEventListener('pointerdown', e => {
       if (e.target !== floorEl || e.button !== 0) return;
       clearAreaSelection();
+      clearEntranceSelection();
       if (mode !== 'edit') {
         // 通常モードでは選択解除のみ
         selectedIds = new Set();
@@ -711,6 +756,17 @@
       // 削除された机を選択から外す
       selectedIds = new Set(selectedDesks().map(d => d.id));
       const list = selectedDesks();
+
+      // 入口を選択中
+      const ent = selectedEntrance();
+      entrancePanel.hidden = !ent;
+      if (ent) {
+        panelHint.hidden = true;
+        panelBody.hidden = true;
+        areaPanel.hidden = true;
+        if (document.activeElement !== entranceWidthInput) entranceWidthInput.value = ent.w;
+        return;
+      }
 
       // スタッフエリアを選択中
       const area = selectedArea();
@@ -865,7 +921,10 @@
         : '';
       // 複数選択は配置編集モードだけなので、通常モードに戻るときは解除する
       if (mode === 'normal' && selectedIds.size > 1) selectedIds = new Set();
-      if (mode === 'normal') selectedAreaId = null;
+      if (mode === 'normal') {
+        selectedAreaId = null;
+        selectedEntranceId = null;
+      }
       render();
     });
 
@@ -890,8 +949,22 @@
       // 文字入力中は何もしない
       const t = e.target;
       if (t && (t.isContentEditable || ['INPUT', 'SELECT', 'TEXTAREA'].includes(t.tagName))) return;
-      if (deskDrag || marquee || chairDrag || areaDrag) return;
+      if (deskDrag || marquee || chairDrag || areaDrag || entranceDrag) return;
       const [ux, uy] = ARROW_KEYS[e.key];
+
+      // 入口を選択中：壁に沿った向きの矢印キーだけで動かす
+      const ent = selectedEntrance();
+      if (ent) {
+        e.preventDefault();
+        const along = ent.side === 'top' || ent.side === 'bottom' ? ux : uy;
+        if (along === 0) return;
+        ent.pos += along * (e.shiftKey ? 1 : GRID);
+        clampEntrance(ent);
+        const el = floorEl.querySelector(`.entrance[data-id="${CSS.escape(ent.id)}"]`);
+        if (el) placeEntranceEl(ent, el, el.nextSibling);
+        scheduleSave();
+        return;
+      }
 
       // スタッフエリアを選択中
       const area = selectedArea();
@@ -952,6 +1025,7 @@
       e.stopPropagation();
       // エリアを選ぶと机の選択は外す
       selectedIds = new Set();
+      clearEntranceSelection();
       selectedAreaId = area.id;
       floorEl.querySelectorAll('.area').forEach(a => a.classList.toggle('selected', a === el));
       refreshSelection();
@@ -996,6 +1070,7 @@
       area.y = spot.y;
       areas.push(area);
       selectedIds = new Set();
+      selectedEntranceId = null;
       selectedAreaId = area.id;
       commit();
     });
@@ -1016,6 +1091,92 @@
       commit();
     });
 
+    // ===== 入口 =====
+    const entrancePanel = document.getElementById('entrancePanel');
+    const entranceWidthInput = document.getElementById('entranceWidthInput');
+
+    function selectedEntrance() {
+      const ent = entrances.find(x => x.id === selectedEntranceId) || null;
+      if (!ent) selectedEntranceId = null;
+      return ent;
+    }
+
+    function clearEntranceSelection() {
+      if (!selectedEntranceId) return;
+      selectedEntranceId = null;
+      floorEl.querySelectorAll('.entrance.selected').forEach(el => el.classList.remove('selected'));
+    }
+
+    function placeEntranceEl(ent, el, labelEl) {
+      const r = entranceRect(ent);
+      Object.assign(el.style, { left: `${r.x}px`, top: `${r.y}px`, width: `${r.w}px`, height: `${r.h}px` });
+      if (labelEl) {
+        const p = entranceLabelPoint(ent);
+        Object.assign(labelEl.style, { left: `${p.x}px`, top: `${p.y}px` });
+      }
+    }
+
+    function onEntrancePointerDown(e, ent, el, labelEl) {
+      if (mode !== 'edit' || e.button !== 0) return;
+      e.preventDefault();
+      e.stopPropagation();
+      // 入口を選ぶと机・エリアの選択は外す
+      selectedIds = new Set();
+      clearAreaSelection();
+      selectedEntranceId = ent.id;
+      floorEl.querySelectorAll('.entrance').forEach(x => x.classList.toggle('selected', x === el));
+      refreshSelection();
+      el.setPointerCapture(e.pointerId);
+      entranceDrag = { ent, el, labelEl, moved: false };
+    }
+
+    // ポインタに一番近い壁へ吸い付けて、壁に沿って動かす
+    function moveEntranceDrag(e) {
+      const d = entranceDrag;
+      const wall = nearestWall(toFloorPoint(e));
+      const pos = Math.round(wall.pos / GRID) * GRID;
+      if (wall.side === d.ent.side && pos === d.ent.pos) return;
+      d.ent.side = wall.side;
+      d.ent.pos = pos;
+      clampEntrance(d.ent);
+      placeEntranceEl(d.ent, d.el, d.labelEl);
+      d.moved = true;
+    }
+
+    // 「入口を追加」：下の壁の、ほかの入口と重ならない位置に置く
+    document.getElementById('addEntranceBtn').addEventListener('click', () => {
+      const ent = { id: `ent-${Date.now()}-${Math.random()}`, side: 'bottom', pos: FLOOR_W / 2, w: ENTRANCE_DEFAULT_W };
+      const used = entrances.filter(x => x.side === 'bottom');
+      for (let i = 0; i < 20 && used.some(x => Math.abs(x.pos - ent.pos) < (x.w + ent.w) / 2 + 10); i++) {
+        ent.pos += (i % 2 === 0 ? 1 : -1) * (i + 1) * 100;   // 中央から左右交互にずらす
+      }
+      clampEntrance(ent);
+      entrances.push(ent);
+      selectedIds = new Set();
+      selectedAreaId = null;
+      selectedEntranceId = ent.id;
+      commit();
+    });
+
+    entranceWidthInput.addEventListener('change', () => {
+      const ent = selectedEntrance();
+      if (!ent) return;
+      const w = Number(entranceWidthInput.value);
+      if (!Number.isFinite(w)) return;
+      ent.w = w;
+      clampEntrance(ent);
+      commit();
+    });
+
+    document.getElementById('deleteEntranceBtn').addEventListener('click', () => {
+      const ent = selectedEntrance();
+      if (!ent) return;
+      if (!confirm('この入口を削除しますか？')) return;
+      entrances = entrances.filter(x => x.id !== ent.id);
+      selectedEntranceId = null;
+      commit();
+    });
+
     // ===== ページ読み込み時 =====
     window.addEventListener('DOMContentLoaded', async () => {
       fitFloor();
@@ -1026,8 +1187,9 @@
     // ===== リアルタイム更新（2秒ごと） =====
     // 操作中・保存直後は、自分の変更が巻き戻らないよう読み込みを止める
     setInterval(async () => {
-      const busy = () => deskDrag || marquee || chairDrag || areaDrag || chairDragging || Date.now() - lastLocalChange < 4000;
-      if (busy() || document.activeElement === nameInput || document.activeElement === areaLabelInput) return;
+      const busy = () => deskDrag || marquee || chairDrag || areaDrag || entranceDrag || chairDragging || Date.now() - lastLocalChange < 4000;
+      const typing = [nameInput, areaLabelInput, entranceWidthInput].includes(document.activeElement);
+      if (busy() || typing) return;
       await loadData();
       if (busy()) return;
       render();

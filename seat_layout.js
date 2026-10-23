@@ -249,3 +249,67 @@ function countSeats(desks, areas) {
   });
   return { occupiedSeats, staffSeats };
 }
+
+// ===== 入口 =====
+// 入口は部屋の壁（side: top/bottom/left/right）の上に置く
+// pos = 壁に沿った入口の中心の位置、w = 入口の幅
+const ENTRANCE_DEFAULT_W = 80;
+const ENTRANCE_MIN_W = 40;
+const ENTRANCE_MAX_W = 300;
+const ENTRANCE_T = 14;   // 入口の帯の太さ
+
+function wallLength(side) {
+  return side === 'top' || side === 'bottom' ? FLOOR_W : FLOOR_H;
+}
+
+function clampEntrance(e) {
+  if (!SIDES.includes(e.side)) e.side = 'bottom';
+  e.w = Math.max(ENTRANCE_MIN_W, Math.min(ENTRANCE_MAX_W, Math.round(e.w)));
+  const len = wallLength(e.side);
+  e.pos = Math.max(e.w / 2, Math.min(len - e.w / 2, Math.round(e.pos)));
+}
+
+// クラウドから読み込んだ入口データを整える
+function parseEntrances(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw.map(r => {
+    const e = {
+      id: r.id || `${Date.now()}-${Math.random()}`,
+      side: r.side,
+      pos: Number.isFinite(r.pos) ? r.pos : 0,
+      w: Number.isFinite(r.w) ? r.w : ENTRANCE_DEFAULT_W,
+    };
+    clampEntrance(e);
+    return e;
+  });
+}
+
+// 入口の帯の四角（部屋の内側、壁に沿って描く）
+function entranceRect(e) {
+  const a = e.pos - e.w / 2;
+  switch (e.side) {
+    case 'top':    return { x: a, y: 0, w: e.w, h: ENTRANCE_T };
+    case 'bottom': return { x: a, y: FLOOR_H - ENTRANCE_T, w: e.w, h: ENTRANCE_T };
+    case 'left':   return { x: 0, y: a, w: ENTRANCE_T, h: e.w };
+    default:       return { x: FLOOR_W - ENTRANCE_T, y: a, w: ENTRANCE_T, h: e.w };
+  }
+}
+
+// 「入口」の文字の位置（帯のすぐ内側）
+function entranceLabelPoint(e) {
+  const r = entranceRect(e);
+  const inset = ENTRANCE_T + 16;
+  switch (e.side) {
+    case 'top':    return { x: e.pos, y: inset };
+    case 'bottom': return { x: e.pos, y: FLOOR_H - inset };
+    case 'left':   return { x: inset + 14, y: r.y + r.h / 2 };
+    default:       return { x: FLOOR_W - inset - 14, y: r.y + r.h / 2 };
+  }
+}
+
+// 部屋の中の点 p に一番近い壁と、壁に沿った位置
+function nearestWall(p) {
+  const d = { top: p.y, bottom: FLOOR_H - p.y, left: p.x, right: FLOOR_W - p.x };
+  const side = SIDES.reduce((a, b) => (d[b] < d[a] ? b : a));
+  return { side, pos: side === 'top' || side === 'bottom' ? p.x : p.y };
+}

@@ -201,13 +201,14 @@
     }
 
     // 簡易見取り図を描く（机と椅子の形だけ。使用中の机は赤、スタッフエリアの机はグレー）
-    function drawSeatMap(rawDesks, rawAreas) {
+    function drawSeatMap(rawDesks, rawAreas, rawEntrances) {
       const wrap = document.getElementById('seat-map-wrap');
       const svg = document.getElementById('seat-map');
       if (!wrap || !svg) return;
       const desks = Array.isArray(rawDesks) ? parseDesks(rawDesks) : [];
       const areas = parseAreas(rawAreas);
-      if (desks.length === 0 && areas.length === 0) {
+      const entrances = parseEntrances(rawEntrances);
+      if (desks.length === 0 && areas.length === 0 && entrances.length === 0) {
         wrap.hidden = true;
         return;
       }
@@ -230,6 +231,13 @@
         html += `<g class="area"><rect x="${a.x}" y="${a.y}" width="${a.w}" height="${a.h}" rx="6"/>`;
         html += `<text x="${a.x + a.w / 2}" y="${a.y + a.h / 2}" font-size="${size}">${escapeXml(a.label)}</text></g>`;
       });
+      // 入口（壁の上に描く）
+      entrances.forEach(ent => {
+        const r = entranceRect(ent);
+        const p = entranceLabelPoint(ent);
+        html += `<g class="entrance"><rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" rx="3"/>`;
+        html += `<text x="${p.x}" y="${p.y}">入口</text></g>`;
+      });
       svg.innerHTML = html;
       wrap.hidden = false;
       document.getElementById('seat-map-staff-key').hidden = areas.length === 0;
@@ -242,7 +250,7 @@
 
         // 見取り図を更新（失敗しても席数の表示は続ける）
         try {
-          drawSeatMap(data && data.desks, data && data.areas);
+          drawSeatMap(data && data.desks, data && data.areas, data && data.entrances);
         } catch (e) {
           console.warn("見取り図の描画失敗", e);
         }
