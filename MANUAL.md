@@ -11,8 +11,11 @@
 | `survey.html` | アンケートページ |
 | `seat_manager.html` | 机・椅子の総数を設定する（責任者用） |
 | `seat.html` | 机と椅子の配置・空席状況を管理する（見取り図） |
+| `seat_layout.js` | 見取り図の共通処理（机の大きさ・椅子の並べ方・データの読み取り）。`seat.html` と `index.html` が読み込む |
 
 机・椅子のデータは Google Apps Script（`CLOUD_URL`）に保存され、すべての端末で共有されます。
+
+机の大きさや椅子の上限を変えるときは、`seat_layout.js` の `DESK_TYPES` を直します（両方のページに反映されます）。
 
 ## 席管理の流れ
 

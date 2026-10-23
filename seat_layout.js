@@ -1,0 +1,202 @@
+// 席の見取り図の共通処理（seat.html と index.html から読み込む）
+// 机の大きさ・椅子の並べ方・保存データの読み取りをまとめている
+// 机の大きさなどを変えるときは、このファイルだけ直せば両方のページに反映される
+
+// ===== 見取り図の設定 =====
+// 見取り図は 1000 x 600 の論理座標で管理し、画面幅に合わせて拡大縮小する
+const FLOOR_W = 1000;
+const FLOOR_H = 600;
+const GRID = 10;                                          // 机を動かすときのマス目
+const CHAIR_SIZE = 20;                                    // seat.html の .chair の width/height と合わせる
+const DESK_TYPES = {
+  // caps: 辺ごとに置ける椅子の数（top/bottom = 長い辺、left/right = 短い辺）
+  long:   { label: '長机',   w: 145, h: 48, caps: { top: 3, bottom: 3, left: 0, right: 0 } },
+  medium: { label: '中机',   w: 95,  h: 48, caps: { top: 2, bottom: 2, left: 1, right: 1 } },
+  square: { label: '正方形', w: 70,  h: 70, caps: { top: 1, bottom: 1, left: 1, right: 1 } },
+  big:    { label: '大机',   w: 145, h: 95, caps: { top: 3, bottom: 3, left: 2, right: 2 } },
+};
+const DEFAULT_TYPE = 'long';
+
+// 回転前の机の幅・高さ
+function deskSize(desk) {
+  const t = DESK_TYPES[desk.type] || DESK_TYPES[DEFAULT_TYPE];
+  return { w: t.w, h: t.h };
+}
+
+// 角度を 0〜315 の 45° 刻みにそろえる
+function normalizeRotation(r) {
+  const n = Math.round((Number(r) || 0) / 45) * 45;
+  return ((n % 360) + 360) % 360;
+}
+
+// 回転後の机を囲む四角（見取り図上の座標）
+// desk.x, desk.y は回転前の机の左上。回転は机の中心で行う
+function deskBounds(desk) {
+  const { w, h } = deskSize(desk);
+  const rad = desk.rotation * Math.PI / 180;
+  const cos = Math.abs(Math.cos(rad)), sin = Math.abs(Math.sin(rad));
+  const bw = w * cos + h * sin;
+  const bh = w * sin + h * cos;
+  const cx = desk.x + w / 2, cy = desk.y + h / 2;
+  return { x: cx - bw / 2, y: cy - bh / 2, w: bw, h: bh };
+}
+
+// 椅子が部屋からはみ出さないよう、机を壁から離す距離
+const WALL_PAD = 30;
+
+function clampDesk(desk) {
+  const b = deskBounds(desk);
+  const bx = Math.max(WALL_PAD, Math.min(FLOOR_W - b.w - WALL_PAD, b.x));
+  const by = Math.max(WALL_PAD, Math.min(FLOOR_H - b.h - WALL_PAD, b.y));
+  desk.x = Math.round(desk.x + bx - b.x);
+  desk.y = Math.round(desk.y + by - b.y);
+}
+
+// 他の机（allDesks）と重ならない空き場所を探す（見つからなければ左上）
+// 戻り値は回転前の机の左上座標
+function findFreeSpot(desk, allDesks) {
+  const b0 = deskBounds({ ...desk, x: 0, y: 0 });   // 左上からのずれを求める
+  const margin = CHAIR_SIZE + 10;   // 椅子の分だけ間をあける
+  for (let y = margin; y + b0.h <= FLOOR_H; y += GRID * 2) {
+    for (let x = margin; x + b0.w <= FLOOR_W; x += GRID * 2) {
+      const hit = allDesks.some(o => {
+        if (o === desk || o.x == null) return false;
+        const s = deskBounds(o);
+        return x < s.x + s.w + margin && s.x < x + b0.w + margin &&
+               y < s.y + s.h + margin && s.y < y + b0.h + margin;
+      });
+      if (!hit) return { x: Math.round(x - b0.x), y: Math.round(y - b0.y) };
+    }
+  }
+  return { x: margin - b0.x, y: margin - b0.y };
+}
+
+// 位置が未設定の机（古いデータなど）を自動で並べる
+function placeUnplacedDesks(allDesks) {
+  allDesks.forEach(d => {
+    if (!Number.isFinite(d.x) || !Number.isFinite(d.y)) {
+      d.x = null; d.y = null;
+      const spot = findFreeSpot(d, allDesks);
+      d.x = spot.x; d.y = spot.y;
+    }
+    clampDesk(d);
+  });
+}
+
+// ===== 椅子の並べ方 =====
+// 椅子は回転前の机の4辺（top/bottom = 長い辺、left/right = 短い辺）のどれかに置く
+// 辺は机と一緒に回転する。同じ辺の椅子は等間隔に並べる
+const SIDES = ['top', 'bottom', 'left', 'right'];
+const LONG_SIDES = ['top', 'bottom'];
+const SHORT_SIDES = ['left', 'right'];
+
+function sideCaps(desk) {
+  return (DESK_TYPES[desk.type] || DESK_TYPES[DEFAULT_TYPE]).caps;
+}
+
+function deskCapacity(desk) {
+  const caps = sideCaps(desk);
+  return SIDES.reduce((sum, k) => sum + caps[k], 0);
+}
+
+function sideCounts(desk) {
+  const counts = { top: 0, bottom: 0, left: 0, right: 0 };
+  desk.seats.forEach(s => { if (s.side in counts) counts[s.side]++; });
+  return counts;
+}
+
+// 椅子の少ない辺を返す（長い辺を優先）。full = true なら満員の辺も含める
+function pickSide(desk, full) {
+  const caps = sideCaps(desk), counts = sideCounts(desk);
+  for (const group of [LONG_SIDES, SHORT_SIDES]) {
+    const ok = group.filter(k => caps[k] > 0 && (full || counts[k] < caps[k]));
+    if (ok.length) return ok.reduce((a, b) => (counts[b] < counts[a] ? b : a));
+  }
+  return null;
+}
+
+// 空いている辺（満員なら null）
+function freeSide(desk) {
+  return pickSide(desk, false);
+}
+
+// 辺が決まっていない椅子や、上限を超えた辺の椅子に辺を割り当て直す
+// 机全体が満員のときは、椅子を減らさずに長い辺へ重ねて置く（定員オーバー表示になる）
+function normalizeSides(desk) {
+  const caps = sideCaps(desk);
+  const counts = { top: 0, bottom: 0, left: 0, right: 0 };
+  desk.seats.forEach(s => {
+    if (SIDES.includes(s.side) && counts[s.side] < caps[s.side]) counts[s.side]++;
+    else delete s.side;
+  });
+  desk.seats.forEach(s => {
+    if (!s.side) s.side = freeSide(desk) || pickSide(desk, true) || 'top';
+  });
+}
+
+// 辺の上の位置（t = 0〜1、off = 机の端からの距離）。机の左上からの相対座標
+function sidePoint(side, t, w, h, off) {
+  switch (side) {
+    case 'top':    return { x: w * t, y: -off };
+    case 'bottom': return { x: w * t, y: h + off };
+    case 'left':   return { x: -off, y: h * t };
+    default:       return { x: w + off, y: h * t };
+  }
+}
+
+// 各椅子の位置（机の左上からの相対座標）を、椅子の並び順で返す
+function chairLayout(desk) {
+  const { w, h } = deskSize(desk);
+  const off = CHAIR_SIZE / 2 + 3;
+  const groups = { top: [], bottom: [], left: [], right: [] };
+  desk.seats.forEach((s, i) => (groups[s.side] || groups.top).push(i));
+  const pos = [];
+  SIDES.forEach(k => {
+    const m = groups[k].length;
+    groups[k].forEach((seatIdx, j) => {
+      pos[seatIdx] = sidePoint(k, (j + 1) / (m + 1), w, h, off);
+    });
+  });
+  return pos;
+}
+
+// ===== 保存データの読み取り =====
+// 机の椅子数を seatCount にそろえる
+function adjustDeskSeats(desk, desiredCount) {
+  desiredCount = Number.isInteger(desiredCount) ? desiredCount : 0;
+  desk.seatCount = Math.max(0, Math.min(50, desiredCount));
+
+  // 実際の椅子数をseatCountに合わせる
+  if (desk.seats.length > desk.seatCount) {
+    desk.seats = desk.seats.slice(0, desk.seatCount);
+  }
+}
+
+// クラウドから読み込んだ机データを整える（足りない項目を補い、椅子の辺と机の位置を決める）
+function parseDesks(rawDesks) {
+  const list = rawDesks.map(d => ({
+    id: d.id || `${Date.now()}-${Math.random()}`,
+    name: d.name || '机',
+    seatCount: Number.isInteger(d.seatCount) ? d.seatCount : 0,
+    status: d.status === 'occupied' ? 'occupied' : 'free',
+    seats: Array.isArray(d.seats)
+      ? d.seats.map(s => {
+          const seat = { id: s.id || `${d.name}-seat` };
+          // 椅子を置く辺
+          if (SIDES.includes(s.side)) seat.side = s.side;
+          return seat;
+        })
+      : [],
+    type: DESK_TYPES[d.type] ? d.type : DEFAULT_TYPE,
+    rotation: normalizeRotation(d.rotation),
+    x: Number.isFinite(d.x) ? d.x : null,
+    y: Number.isFinite(d.y) ? d.y : null,
+  }));
+
+  list.forEach(d => {
+    adjustDeskSeats(d, d.seatCount);
+    normalizeSides(d);
+  });
+  placeUnplacedDesks(list);
+  return list;
+}
