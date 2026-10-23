@@ -200,3 +200,52 @@ function parseDesks(rawDesks) {
   placeUnplacedDesks(list);
   return list;
 }
+
+// ===== スタッフエリア =====
+// 見取り図上の四角いエリア。中央に label（初期値 "STAFF"）を表示する
+// 机の中心がエリアの中にある机はスタッフ用として、使用率・残り席数の計算から外す
+const AREA_DEFAULT_LABEL = 'STAFF';
+const AREA_MIN_W = 60;
+const AREA_MIN_H = 40;
+
+function clampArea(area) {
+  area.w = Math.max(AREA_MIN_W, Math.min(FLOOR_W, area.w));
+  area.h = Math.max(AREA_MIN_H, Math.min(FLOOR_H, area.h));
+  area.x = Math.max(0, Math.min(FLOOR_W - area.w, area.x));
+  area.y = Math.max(0, Math.min(FLOOR_H - area.h, area.y));
+}
+
+// クラウドから読み込んだエリアデータを整える
+function parseAreas(rawAreas) {
+  if (!Array.isArray(rawAreas)) return [];
+  return rawAreas.map(a => {
+    const area = {
+      id: a.id || `${Date.now()}-${Math.random()}`,
+      x: Number.isFinite(a.x) ? a.x : 0,
+      y: Number.isFinite(a.y) ? a.y : 0,
+      w: Number.isFinite(a.w) ? a.w : 200,
+      h: Number.isFinite(a.h) ? a.h : 120,
+      label: typeof a.label === 'string' && a.label.trim() ? a.label.trim().slice(0, 10) : AREA_DEFAULT_LABEL,
+    };
+    clampArea(area);
+    return area;
+  });
+}
+
+// 机がスタッフエリアの中にあるか（机の中心で判定）
+function isStaffDesk(desk, areas) {
+  const { w, h } = deskSize(desk);
+  const cx = desk.x + w / 2, cy = desk.y + h / 2;
+  return areas.some(a => cx >= a.x && cx <= a.x + a.w && cy >= a.y && cy <= a.y + a.h);
+}
+
+// 席数の集計（スタッフエリアの机は除く）
+// occupiedSeats: 使用中の机の椅子数、staffSeats: スタッフエリアの机の椅子数
+function countSeats(desks, areas) {
+  let occupiedSeats = 0, staffSeats = 0;
+  desks.forEach(d => {
+    if (isStaffDesk(d, areas)) staffSeats += d.seats.length;
+    else if (d.status === 'occupied') occupiedSeats += d.seats.length;
+  });
+  return { occupiedSeats, staffSeats };
+}

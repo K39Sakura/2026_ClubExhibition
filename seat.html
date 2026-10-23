@@ -51,6 +51,17 @@
     .side-add:hover { background: #b86f00; }
     .marquee { position: absolute; border: 1px dashed #e08e0b; background: rgba(224, 142, 11, 0.12); pointer-events: none; }
     #panelBody.multi .single-only { display: none !important; }
+
+    /* ===== スタッフエリア ===== */
+    .area { position: absolute; box-sizing: border-box; border: 2px dashed #6b6b6b; border-radius: 4px; background: repeating-linear-gradient(45deg, rgba(110, 110, 110, 0.20) 0 10px, rgba(110, 110, 110, 0.08) 10px 20px); display: flex; align-items: center; justify-content: center; color: #4a4a4a; font-size: 20px; font-weight: 700; letter-spacing: 0.1em; user-select: none; touch-action: none; overflow: hidden; }
+    .area .area-label { pointer-events: none; white-space: nowrap; }
+    body.mode-normal .area { pointer-events: none; }
+    body.mode-edit .area { cursor: move; }
+    .area.selected { outline: 3px solid #e08e0b; outline-offset: 2px; }
+    .area-resize { position: absolute; right: 0; bottom: 0; width: 14px; height: 14px; background: #e08e0b; cursor: nwse-resize; border-radius: 3px 0 2px 0; }
+    .desk.staff { background: #d5d5d5; border-color: #777; }
+    #addAreaBtn { background: #6b6b6b; }
+    #addAreaBtn:hover { background: #4a4a4a; }
   </style>
 </head>
 <body class="mode-normal" style="background-color: #CED3DC;">
@@ -62,6 +73,7 @@
     <span id="seatStatus">残り椅子: 0</span>
     <button id="refreshBtn" type="button">更新</button>
     <button id="modeBtn" type="button">配置編集モードにする</button>
+    <span class="edit-only"><button id="addAreaBtn" type="button">スタッフエリアを追加</button></span>
   </div>
   <div>机をクリックで選択。椅子はダブルクリックで削除（プールに戻る）、ドラッグ＆ドロップで机間移動可能。</div>
   <div>机の位置・大きさ・向きを変えるときは<strong>配置編集モード</strong>に切り替えて、机をドラッグしてください。</div>
@@ -87,6 +99,13 @@
         <button id="rotateRightBtn" type="button" title="右に45°回転">⟳ 45°</button>
       </span>
       <button id="deleteDeskBtn" type="button" class="danger">机を削除</button>
+    </span>
+    <span id="areaPanel" hidden>
+      <span class="panel-title">スタッフエリア</span>
+      <label for="areaLabelInput">表示する文字</label>
+      <input id="areaLabelInput" type="text" maxlength="10">
+      <span class="hint">ドラッグで移動、右下の角で大きさを変更</span>
+      <button id="deleteAreaBtn" type="button" class="danger">エリアを削除</button>
     </span>
   </div>
 
@@ -116,6 +135,9 @@
     let chairDragging = false;                                // 椅子を別の机へ移動中（通常モード）
     let chairDrag = null;                                     // 椅子の位置を調整中（配置編集モード）
     let lastLocalChange = 0;                                  // 最後に自分が変更した時刻
+    let areas = [];                                           // スタッフエリア
+    let selectedAreaId = null;                                // 選択中のスタッフエリア
+    let areaDrag = null;                                      // エリアを移動・大きさ変更中の情報
 
     function createSeat(id) {
       return { id };
@@ -195,6 +217,7 @@
           remainingSeats = Number.isInteger(parsed.remainingSeats) ? parsed.remainingSeats : 0;
 
           desks = parseDesks(parsed.desks);
+          areas = parseAreas(parsed.areas);
         }
       } catch (e) {
         console.warn("クラウド読み込み失敗", e);
@@ -204,18 +227,18 @@
     async function saveData() {
       lastLocalChange = Date.now();
 
-      // 使用中の机に置かれている椅子の数を計算
-      const occupiedSeats = desks
-        .filter(d => d.status === 'occupied')
-        .reduce((sum, d) => sum + d.seats.length, 0);
+      // 使用中の机の椅子数と、スタッフエリアの机の椅子数（席数の計算から外す）
+      const { occupiedSeats, staffSeats } = countSeats(desks, areas);
 
       await saveDesksToCloud({
         totalDesks,
         totalSeats,
         remainingDesks,
         remainingSeats,
-        occupiedSeats,  // 使用中の机の椅子数を追加
-        desks
+        occupiedSeats,  // 使用中の机の椅子数（スタッフエリアの机は除く）
+        staffSeats,     // スタッフエリアの机の椅子数
+        desks,
+        areas
       });
       lastLocalChange = Date.now();
     }
@@ -381,10 +404,32 @@
       floorEl.innerHTML = '';
       deskEls = new Map();
 
+      // スタッフエリア（机より先に描いて、机の後ろに表示する）
+      areas.forEach(area => {
+        const el = document.createElement('div');
+        el.className = 'area' + (area.id === selectedAreaId ? ' selected' : '');
+        el.dataset.id = area.id;
+        placeAreaEl(area, el);
+        const label = document.createElement('span');
+        label.className = 'area-label';
+        label.textContent = area.label;
+        el.appendChild(label);
+        if (mode === 'edit') {
+          const handle = document.createElement('div');
+          handle.className = 'area-resize';
+          handle.title = 'ドラッグで大きさを変更';
+          handle.addEventListener('pointerdown', e => onAreaPointerDown(e, area, el, 'resize'));
+          el.appendChild(handle);
+        }
+        el.addEventListener('pointerdown', e => onAreaPointerDown(e, area, el, 'move'));
+        floorEl.appendChild(el);
+      });
+
       desks.forEach(desk => {
         const { w, h } = deskSize(desk);
+        const staff = isStaffDesk(desk, areas);
         const deskEl = document.createElement('div');
-        deskEl.className = `desk ${desk.status}` + (selectedIds.has(desk.id) ? ' selected' : '');
+        deskEl.className = `desk ${desk.status}` + (staff ? ' staff' : '') + (selectedIds.has(desk.id) ? ' selected' : '');
         deskEl.dataset.id = desk.id;
         deskEls.set(desk.id, deskEl);
         deskEl.style.left = `${desk.x}px`;
@@ -404,7 +449,8 @@
         const info = document.createElement('span');
         info.className = 'desk-info';
         const over = desk.seats.length > deskCapacity(desk);
-        info.textContent = `${desk.status === 'occupied' ? '使用中' : '空席'} / ${desk.seats.length}席` + (over ? ' ⚠' : '');
+        const statusLabel = staff ? 'スタッフ' : (desk.status === 'occupied' ? '使用中' : '空席');
+        info.textContent = `${statusLabel} / ${desk.seats.length}席` + (over ? ' ⚠' : '');
         label.append(name, info);
         deskEl.append(label);
 
@@ -515,6 +561,7 @@
     // ===== 机のドラッグ（Pointer Eventsでタッチにも対応） =====
     function onDeskPointerDown(e, desk, deskEl) {
       if (e.button !== 0) return;
+      clearAreaSelection();
 
       // 配置編集モードで Shift / Ctrl を押しながらクリック：選択に追加・解除
       if (mode === 'edit' && (e.shiftKey || e.ctrlKey || e.metaKey)) {
@@ -555,6 +602,8 @@
           placeDeskEl(it.desk);
         });
         if (dx !== 0 || dy !== 0) deskDrag.moved = true;
+      } else if (areaDrag) {
+        moveAreaDrag(e);
       } else if (chairDrag) {
         const d = chairDrag;
         const l = screenToLocal(d.desk, (e.clientX - d.startX) / floorScale, (e.clientY - d.startY) / floorScale);
@@ -568,6 +617,12 @@
     });
 
     function endPointer() {
+      if (areaDrag) {
+        const moved = areaDrag.moved;
+        areaDrag = null;
+        // エリアが動くと、中に入る机（スタッフ扱い）が変わるので描き直す
+        if (moved) commit();
+      }
       if (deskDrag) {
         const moved = deskDrag.moved;
         deskDrag = null;
@@ -597,6 +652,7 @@
     // ===== 範囲選択（見取り図の何もないところからドラッグ） =====
     floorEl.addEventListener('pointerdown', e => {
       if (e.target !== floorEl || e.button !== 0) return;
+      clearAreaSelection();
       if (mode !== 'edit') {
         // 通常モードでは選択解除のみ
         selectedIds = new Set();
@@ -655,6 +711,17 @@
       // 削除された机を選択から外す
       selectedIds = new Set(selectedDesks().map(d => d.id));
       const list = selectedDesks();
+
+      // スタッフエリアを選択中
+      const area = selectedArea();
+      areaPanel.hidden = !area;
+      if (area) {
+        panelHint.hidden = true;
+        panelBody.hidden = true;
+        if (document.activeElement !== areaLabelInput) areaLabelInput.value = area.label;
+        return;
+      }
+
       panelHint.hidden = list.length > 0;
       panelBody.hidden = list.length === 0;
       panelBody.classList.toggle('multi', list.length > 1);
@@ -669,6 +736,9 @@
       panelName.textContent = `${desk.name}（${desk.seats.length} / ${cap}席）`
         + (desk.seats.length > cap ? ' ⚠ 定員オーバー：椅子を減らしてください' : '');
       statusBtn.textContent = desk.status === 'occupied' ? '使用中 → 空席にする' : '空席 → 使用中にする';
+      // スタッフエリアの机は席数に数えないので、空席 / 使用中の切り替えは出さない
+      statusBtn.hidden = isStaffDesk(desk, areas);
+      if (statusBtn.hidden) panelName.textContent += '（スタッフエリア）';
       if (document.activeElement !== nameInput) nameInput.value = desk.name;
       typeSelect.value = desk.type;
     }
@@ -795,6 +865,7 @@
         : '';
       // 複数選択は配置編集モードだけなので、通常モードに戻るときは解除する
       if (mode === 'normal' && selectedIds.size > 1) selectedIds = new Set();
+      if (mode === 'normal') selectedAreaId = null;
       render();
     });
 
@@ -804,10 +875,14 @@
     let keySaveTimer = null;
 
     // キーを押すたびに保存すると送信が多すぎるので、止まってから 0.5 秒後にまとめて保存
-    function scheduleSave() {
+    // rerender = true なら保存のときに描き直す（エリアの移動でスタッフ扱いの机が変わるため）
+    function scheduleSave(rerender) {
       lastLocalChange = Date.now();
       clearTimeout(keySaveTimer);
-      keySaveTimer = setTimeout(() => saveData(), 500);
+      keySaveTimer = setTimeout(() => {
+        saveData();
+        if (rerender) render();
+      }, 500);
     }
 
     document.addEventListener('keydown', e => {
@@ -815,8 +890,22 @@
       // 文字入力中は何もしない
       const t = e.target;
       if (t && (t.isContentEditable || ['INPUT', 'SELECT', 'TEXTAREA'].includes(t.tagName))) return;
-      if (deskDrag || marquee || chairDrag) return;
+      if (deskDrag || marquee || chairDrag || areaDrag) return;
       const [ux, uy] = ARROW_KEYS[e.key];
+
+      // スタッフエリアを選択中
+      const area = selectedArea();
+      if (area) {
+        e.preventDefault();
+        const step = e.shiftKey ? 1 : GRID;
+        area.x += ux * step;
+        area.y += uy * step;
+        clampArea(area);
+        const el = floorEl.querySelector(`.area[data-id="${CSS.escape(area.id)}"]`);
+        if (el) placeAreaEl(area, el);
+        scheduleSave(true);
+        return;
+      }
 
       // 机を選択中
       const list = selectedDesks();
@@ -833,6 +922,100 @@
       scheduleSave();
     });
 
+    // ===== スタッフエリア =====
+    const areaPanel = document.getElementById('areaPanel');
+    const areaLabelInput = document.getElementById('areaLabelInput');
+
+    function selectedArea() {
+      const area = areas.find(a => a.id === selectedAreaId) || null;
+      if (!area) selectedAreaId = null;
+      return area;
+    }
+
+    function clearAreaSelection() {
+      if (!selectedAreaId) return;
+      selectedAreaId = null;
+      floorEl.querySelectorAll('.area.selected').forEach(el => el.classList.remove('selected'));
+    }
+
+    function placeAreaEl(area, el) {
+      el.style.left = `${area.x}px`;
+      el.style.top = `${area.y}px`;
+      el.style.width = `${area.w}px`;
+      el.style.height = `${area.h}px`;
+    }
+
+    // エリアのドラッグ開始（kind: 'move' = 移動、'resize' = 右下の角で大きさ変更）
+    function onAreaPointerDown(e, area, el, kind) {
+      if (mode !== 'edit' || e.button !== 0) return;
+      e.preventDefault();
+      e.stopPropagation();
+      // エリアを選ぶと机の選択は外す
+      selectedIds = new Set();
+      selectedAreaId = area.id;
+      floorEl.querySelectorAll('.area').forEach(a => a.classList.toggle('selected', a === el));
+      refreshSelection();
+      e.target.setPointerCapture(e.pointerId);
+      areaDrag = { area, el, kind, startX: e.clientX, startY: e.clientY,
+                   origX: area.x, origY: area.y, origW: area.w, origH: area.h, moved: false };
+    }
+
+    function moveAreaDrag(e) {
+      const d = areaDrag;
+      const dx = Math.round((e.clientX - d.startX) / floorScale / GRID) * GRID;
+      const dy = Math.round((e.clientY - d.startY) / floorScale / GRID) * GRID;
+      if (d.kind === 'move') {
+        d.area.x = d.origX + dx;
+        d.area.y = d.origY + dy;
+      } else {
+        // 右下の角：部屋の外にはみ出さない範囲で大きさを変える
+        d.area.w = Math.min(FLOOR_W - d.area.x, d.origW + dx);
+        d.area.h = Math.min(FLOOR_H - d.area.y, d.origH + dy);
+      }
+      clampArea(d.area);
+      placeAreaEl(d.area, d.el);
+      if (dx !== 0 || dy !== 0) d.moved = true;
+    }
+
+    // 「スタッフエリアを追加」：机やほかのエリアと重ならない場所に置く
+    document.getElementById('addAreaBtn').addEventListener('click', () => {
+      const area = { id: `area-${Date.now()}-${Math.random()}`, x: 0, y: 0, w: 200, h: 120, label: AREA_DEFAULT_LABEL };
+      const blocks = [
+        ...desks.map(deskBounds),
+        ...areas.map(a => ({ x: a.x, y: a.y, w: a.w, h: a.h })),
+      ];
+      let spot = { x: WALL_PAD, y: WALL_PAD };
+      search:
+      for (let y = 10; y + area.h <= FLOOR_H - 10; y += GRID * 2) {
+        for (let x = 10; x + area.w <= FLOOR_W - 10; x += GRID * 2) {
+          const hit = blocks.some(b => x < b.x + b.w + 20 && b.x < x + area.w + 20 && y < b.y + b.h + 20 && b.y < y + area.h + 20);
+          if (!hit) { spot = { x, y }; break search; }
+        }
+      }
+      area.x = spot.x;
+      area.y = spot.y;
+      areas.push(area);
+      selectedIds = new Set();
+      selectedAreaId = area.id;
+      commit();
+    });
+
+    areaLabelInput.addEventListener('change', () => {
+      const area = selectedArea();
+      if (!area) return;
+      area.label = areaLabelInput.value.trim().slice(0, 10) || AREA_DEFAULT_LABEL;
+      commit();
+    });
+
+    document.getElementById('deleteAreaBtn').addEventListener('click', () => {
+      const area = selectedArea();
+      if (!area) return;
+      if (!confirm(`スタッフエリア「${area.label}」を削除しますか？（中の机はそのまま残ります）`)) return;
+      areas = areas.filter(a => a.id !== area.id);
+      selectedAreaId = null;
+      commit();
+    });
+
     // ===== ページ読み込み時 =====
     window.addEventListener('DOMContentLoaded', async () => {
       fitFloor();
@@ -843,8 +1026,8 @@
     // ===== リアルタイム更新（2秒ごと） =====
     // 操作中・保存直後は、自分の変更が巻き戻らないよう読み込みを止める
     setInterval(async () => {
-      const busy = () => deskDrag || marquee || chairDrag || chairDragging || Date.now() - lastLocalChange < 4000;
-      if (busy() || document.activeElement === nameInput) return;
+      const busy = () => deskDrag || marquee || chairDrag || areaDrag || chairDragging || Date.now() - lastLocalChange < 4000;
+      if (busy() || document.activeElement === nameInput || document.activeElement === areaLabelInput) return;
       await loadData();
       if (busy()) return;
       render();

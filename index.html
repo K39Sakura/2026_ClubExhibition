@@ -78,6 +78,7 @@
             <div class="seat-map-legend">
               <span class="seat-map-key free"></span>空席
               <span class="seat-map-key occupied"></span>使用中
+              <span id="seat-map-staff-key" hidden><span class="seat-map-key staff"></span>スタッフ</span>
             </div>
           </div>
           <p id="seat-status" style="color: #f0f6da;">現在の席状況: <span id="status-text">不明</span></p>  <!-- seat.htmlの内容を表示 -->
@@ -194,22 +195,34 @@
   <script>
     const CLOUD_URL = "https://script.google.com/macros/s/AKfycbwZDawi8TC3dBhZqMEACrGEk2GnwVPqa8djNbCMCsPRX8evpzeBYaUZo8gJo8j75ek/exec";
 
-    // 簡易見取り図を描く（机と椅子の形だけ。使用中の机は赤）
-    function drawSeatMap(rawDesks) {
+    // SVG に文字を埋め込むときのエスケープ
+    function escapeXml(text) {
+      return String(text).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
+    // 簡易見取り図を描く（机と椅子の形だけ。使用中の机は赤、スタッフエリアの机はグレー）
+    function drawSeatMap(rawDesks, rawAreas) {
       const wrap = document.getElementById('seat-map-wrap');
       const svg = document.getElementById('seat-map');
       if (!wrap || !svg) return;
-      if (!Array.isArray(rawDesks) || rawDesks.length === 0) {
+      const desks = Array.isArray(rawDesks) ? parseDesks(rawDesks) : [];
+      const areas = parseAreas(rawAreas);
+      if (desks.length === 0 && areas.length === 0) {
         wrap.hidden = true;
         return;
       }
-      const desks = parseDesks(rawDesks);
-      // 部屋の枠（数値だけを埋め込むので innerHTML で問題ない）
+      // 部屋の枠
       let html = `<rect class="room" x="2" y="2" width="${FLOOR_W - 4}" height="${FLOOR_H - 4}" rx="8"/>`;
+      // スタッフエリア（机の後ろに描く）。文字の大きさはエリアに収まるように調整
+      areas.forEach(a => {
+        const size = Math.max(14, Math.min(40, a.h * 0.4, a.w / Math.max(1, a.label.length) * 1.4));
+        html += `<g class="area"><rect x="${a.x}" y="${a.y}" width="${a.w}" height="${a.h}" rx="6"/>`;
+        html += `<text x="${a.x + a.w / 2}" y="${a.y + a.h / 2}" font-size="${size}">${escapeXml(a.label)}</text></g>`;
+      });
       desks.forEach(d => {
         const { w, h } = deskSize(d);
         const cx = d.x + w / 2, cy = d.y + h / 2;
-        const cls = d.status === 'occupied' ? 'occupied' : 'free';
+        const cls = isStaffDesk(d, areas) ? 'staff' : (d.status === 'occupied' ? 'occupied' : 'free');
         html += `<g class="${cls}" transform="rotate(${d.rotation} ${cx} ${cy})">`;
         html += `<rect class="desk" x="${d.x}" y="${d.y}" width="${w}" height="${h}" rx="5"/>`;
         chairLayout(d).forEach(p => {
@@ -219,6 +232,7 @@
       });
       svg.innerHTML = html;
       wrap.hidden = false;
+      document.getElementById('seat-map-staff-key').hidden = areas.length === 0;
     }
 
     async function loadSeatStatus() {
@@ -228,7 +242,7 @@
 
         // 見取り図を更新（失敗しても席数の表示は続ける）
         try {
-          drawSeatMap(data && data.desks);
+          drawSeatMap(data && data.desks, data && data.areas);
         } catch (e) {
           console.warn("見取り図の描画失敗", e);
         }
@@ -237,9 +251,11 @@
           const statusText = document.getElementById('status-text');
           if (statusText) {
             // 使用中の机に置かれている椅子数を分子として計算
+            // スタッフエリアの机の椅子（staffSeats）は合計から外す
             const occupiedSeats = data.occupiedSeats || 0;
-            const percentage = data.totalSeats > 0 
-              ? Math.round((occupiedSeats / data.totalSeats) * 100) 
+            const guestSeats = Math.max(0, data.totalSeats - (data.staffSeats || 0));
+            const percentage = guestSeats > 0
+              ? Math.round((occupiedSeats / guestSeats) * 100)
               : 0;
               if (percentage >= 100) {
                 statusText.innerHTML = "現在満席です<br>( TДT)ｺﾞﾒﾝﾖｰ ";
@@ -248,7 +264,7 @@
                 return;
               } else {
                 // statusText.textContent = `${percentage}%`;
-                statusText.textContent = `使用率: ${percentage}% / 残り ${data.totalSeats - occupiedSeats} 席`;
+                statusText.textContent = `使用率: ${percentage}% / 残り ${guestSeats - occupiedSeats} 席`;
               }
 
               if (percentage < 50) {
