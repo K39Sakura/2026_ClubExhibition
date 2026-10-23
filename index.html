@@ -216,7 +216,6 @@
       // 部屋の枠
       let html = `<rect class="room" x="2" y="2" width="${FLOOR_W - 4}" height="${FLOOR_H - 4}" rx="8"/>`;
       let hasOther = false;
-      let purposeLabels = '';
       desks.forEach(d => {
         const { w, h } = deskSize(d);
         const cx = d.x + w / 2, cy = d.y + h / 2;
@@ -226,11 +225,6 @@
           cls = 'other';
           hasOther = true;
         }
-        // 用途の文字は傾けずに机の中央へ（机からはみ出してもよい。縁取りで読みやすくする）
-        if (d.purpose) {
-          const size = d.purpose.length > 6 ? 22 : 26;
-          purposeLabels += `<text class="purpose" x="${cx}" y="${cy}" font-size="${size}">${escapeXml(d.purpose)}</text>`;
-        }
         html += `<g class="${cls}" transform="rotate(${d.rotation} ${cx} ${cy})">`;
         html += `<rect class="desk" x="${d.x}" y="${d.y}" width="${w}" height="${h}" rx="5"/>`;
         chairLayout(d).forEach(p => {
@@ -238,7 +232,12 @@
         });
         html += '</g>';
       });
-      html += purposeLabels;
+      // 用途の文字：同じ用途で隣り合う机はまとめて、グループの中央に1つだけ出す
+      // （傾けずに表示。机からはみ出してもよいよう縁取りで読みやすくする）
+      purposeGroups(desks).forEach(g => {
+        const size = g.purpose.length > 6 ? 22 : 26;
+        html += `<text class="purpose" x="${g.x}" y="${g.y}" font-size="${size}">${escapeXml(g.purpose)}</text>`;
+      });
       // スタッフエリア（机より後に描いて一番前に表示する）。文字の大きさはエリアに収まるように調整
       areas.forEach(a => {
         const size = Math.max(14, Math.min(40, a.h * 0.4, a.w / Math.max(1, a.label.length) * 1.4));

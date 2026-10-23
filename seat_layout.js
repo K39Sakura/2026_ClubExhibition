@@ -328,3 +328,41 @@ function nearestWall(p) {
   const side = SIDES.reduce((a, b) => (d[b] < d[a] ? b : a));
   return { side, pos: side === 'top' || side === 'bottom' ? p.x : p.y };
 }
+
+// ===== 用途の文字をまとめる =====
+// 同じ用途で隣り合う机（机を囲む四角どうしのすき間が PURPOSE_GROUP_GAP 以下）を1グループにまとめる
+// A–B、B–C が隣り合っていれば A・B・C が1グループになる
+const PURPOSE_GROUP_GAP = 60;
+
+function boundsGap(a, b) {
+  const gx = Math.max(0, Math.max(a.x, b.x) - Math.min(a.x + a.w, b.x + b.w));
+  const gy = Math.max(0, Math.max(a.y, b.y) - Math.min(a.y + a.h, b.y + b.h));
+  return Math.hypot(gx, gy);
+}
+
+// 戻り値: [{ purpose, x, y }]（x, y = グループ全体を囲む四角の中心。ここに文字を1つ出す）
+function purposeGroups(desks) {
+  const list = desks.filter(d => d.purpose);
+  const bounds = list.map(deskBounds);
+  const parent = list.map((_, i) => i);
+  const find = i => (parent[i] === i ? i : (parent[i] = find(parent[i])));
+  for (let i = 0; i < list.length; i++) {
+    for (let j = i + 1; j < list.length; j++) {
+      if (list[i].purpose === list[j].purpose && boundsGap(bounds[i], bounds[j]) <= PURPOSE_GROUP_GAP) {
+        parent[find(i)] = find(j);
+      }
+    }
+  }
+  const groups = new Map();
+  list.forEach((d, i) => {
+    const root = find(i), b = bounds[i];
+    const g = groups.get(root);
+    if (!g) {
+      groups.set(root, { purpose: d.purpose, x1: b.x, y1: b.y, x2: b.x + b.w, y2: b.y + b.h });
+    } else {
+      g.x1 = Math.min(g.x1, b.x); g.y1 = Math.min(g.y1, b.y);
+      g.x2 = Math.max(g.x2, b.x + b.w); g.y2 = Math.max(g.y2, b.y + b.h);
+    }
+  });
+  return [...groups.values()].map(g => ({ purpose: g.purpose, x: (g.x1 + g.x2) / 2, y: (g.y1 + g.y2) / 2 }));
+}
