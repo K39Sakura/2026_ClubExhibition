@@ -797,6 +797,37 @@
       render();
     });
 
+    // ===== 矢印キーで移動（配置編集モードのみ） =====
+    // 矢印キーで 10 ずつ、Shift を押しながらなら 1 ずつ動かす
+    const ARROW_KEYS = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+    let keySaveTimer = null;
+
+    document.addEventListener('keydown', e => {
+      if (mode !== 'edit' || !ARROW_KEYS[e.key]) return;
+      // 文字入力中は何もしない
+      const t = e.target;
+      if (t && (t.isContentEditable || ['INPUT', 'SELECT', 'TEXTAREA'].includes(t.tagName))) return;
+      if (deskDrag || marquee) return;
+      const list = selectedDesks();
+      if (list.length === 0) return;
+
+      e.preventDefault();   // ページのスクロールを止める
+      const step = e.shiftKey ? 1 : GRID;
+      const [ux, uy] = ARROW_KEYS[e.key];
+      const { dx, dy } = clampDelta(groupMoveRange(list), ux * step, uy * step);
+      if (dx === 0 && dy === 0) return;
+      list.forEach(d => {
+        d.x += dx;
+        d.y += dy;
+        placeDeskEl(d);
+      });
+
+      // キーを押すたびに保存すると送信が多すぎるので、止まってから 0.5 秒後にまとめて保存
+      lastLocalChange = Date.now();
+      clearTimeout(keySaveTimer);
+      keySaveTimer = setTimeout(() => saveData(), 500);
+    });
+
     // ===== ページ読み込み時 =====
     window.addEventListener('DOMContentLoaded', async () => {
       fitFloor();
