@@ -62,6 +62,7 @@
     .desk.staff { background: #d5d5d5; border-color: #777; }
     .desk.other { background: #f3e6c4; border-color: #a07f3a; }
     .desk .desk-purpose { font-size: 10px; color: #333; pointer-events: none; }
+    .desk .group-dot { position: absolute; top: 3px; left: 3px; width: 9px; height: 9px; border-radius: 50%; border: 1px solid white; pointer-events: none; }
     #addAreaBtn { background: #6b6b6b; }
 
     /* ===== 入口 ===== */
@@ -114,6 +115,8 @@
         <label for="purposeSelect">用途</label>
         <select id="purposeSelect"></select>
         <input id="purposeInput" type="text" maxlength="16" placeholder="用途を入力" hidden>
+        <button id="groupBtn" type="button" title="選んだ机を1つのグループにする（用途がそろい、トップページでは用途の文字が1つにまとまる）">グループにする</button>
+        <button id="ungroupBtn" type="button">グループ解除</button>
       </span>
       <button id="deleteDeskBtn" type="button" class="danger">机を削除</button>
     </span>
@@ -182,6 +185,7 @@
         seats,
         type: DEFAULT_TYPE,                    // 机の大きさ（DESK_TYPESのキー）
         purpose: '',                           // 用途（受付・プレイエリアなど。空なら用途なし）
+        group: '',                             // グループID（空ならグループなし）
         rotation: 0,                           // 角度（0〜315、45°刻み）
         x: pos ? pos.x : null,                 // 見取り図上の左上座標
         y: pos ? pos.y : null,
@@ -277,6 +281,7 @@
 
     // 変更を保存して画面に反映する
     function commit() {
+      normalizeGroups(desks);   // 1台だけになったグループの解除・グループ内の用途をそろえる
       saveData();
       render();
     }
@@ -496,6 +501,15 @@
         }
         label.append(info);
         deskEl.append(label);
+
+        // グループの目印（同じグループの机は同じ色の点）
+        if (desk.group) {
+          const dot = document.createElement('span');
+          dot.className = 'group-dot';
+          dot.style.background = groupColor(desk.group);
+          dot.title = `グループ（${groupMembers(desk, desks).length}台）`;
+          deskEl.append(dot);
+        }
 
         // 机の選択・ドラッグ（配置編集モードのみ移動）
         deskEl.addEventListener('pointerdown', e => onDeskPointerDown(e, desk, deskEl));
@@ -804,14 +818,21 @@
       panelBody.classList.toggle('multi', list.length > 1);
       deleteDeskBtn.textContent = list.length > 1 ? 'まとめて削除' : '机を削除';
       updatePurposeControls(list);
+      groupBtn.hidden = list.length < 2;
+      ungroupBtn.hidden = !list.some(d => d.group);
       if (list.length > 1) {
-        panelName.textContent = `${list.length}台選択中（ドラッグでまとめて移動）`;
+        const groups = new Set(list.map(d => d.group));
+        const oneGroup = groups.size === 1 && list[0].group && groupMembers(list[0], desks).length === list.length;
+        panelName.textContent = oneGroup
+          ? `グループ（${list.length}台）を選択中`
+          : `${list.length}台選択中（ドラッグでまとめて移動）`;
         return;
       }
       const desk = list[0];
       if (!desk) return;
       const cap = deskCapacity(desk);
       panelName.textContent = `${desk.name}（${desk.seats.length} / ${cap}席）`
+        + (desk.group ? `［グループ ${groupMembers(desk, desks).length}台］` : '')
         + (desk.seats.length > cap ? ' ⚠ 定員オーバー：椅子を減らしてください' : '');
       statusBtn.textContent = desk.status === 'occupied' ? '使用中 → 空席にする' : '空席 → 使用中にする';
       // スタッフエリアの机・プレイ以外の用途の机は席数に数えないので、空席 / 使用中の切り替えは出さない
@@ -1047,13 +1068,42 @@
       purposeInput.value = custom ? v : '';
     }
 
+    // 用途を設定する（グループの机を選んでいたら、グループ全体に設定する）
     function applyPurpose(value) {
       const list = selectedDesks();
       if (list.length === 0) return;
       const v = value.trim().slice(0, PURPOSE_MAX_LEN);
-      list.forEach(d => { d.purpose = v; });
+      const targets = new Set(list.flatMap(d => groupMembers(d, desks)));
+      targets.forEach(d => { d.purpose = v; });
       commit();
     }
+
+    // ===== 机のグループ =====
+    const groupBtn = document.getElementById('groupBtn');
+    const ungroupBtn = document.getElementById('ungroupBtn');
+
+    // 選んだ机を1つのグループにする（用途は選んだ机で一番多い用途にそろえる）
+    groupBtn.addEventListener('click', () => {
+      const list = selectedDesks();
+      if (list.length < 2) return;
+      const id = `g-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const purpose = commonPurpose(list);
+      list.forEach(d => {
+        d.group = id;
+        d.purpose = purpose;
+      });
+      message.textContent = `${list.length}台をグループにしました。` + (purpose ? `（用途: ${purpose}）` : '（用途はまだありません）');
+      commit();
+    });
+
+    // 選んだ机が入っているグループを解除する（グループの机すべてが対象）
+    ungroupBtn.addEventListener('click', () => {
+      const groups = new Set(selectedDesks().map(d => d.group).filter(Boolean));
+      if (groups.size === 0) return;
+      desks.forEach(d => { if (groups.has(d.group)) d.group = ''; });
+      message.textContent = 'グループを解除しました。';
+      commit();
+    });
 
     purposeSelect.addEventListener('change', () => {
       if (purposeSelect.value === PURPOSE_OTHER) {

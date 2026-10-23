@@ -195,6 +195,7 @@ function parseDesks(rawDesks) {
       : [],
     type: DESK_TYPES[d.type] ? d.type : DEFAULT_TYPE,
     purpose: typeof d.purpose === 'string' ? d.purpose.trim().slice(0, PURPOSE_MAX_LEN) : '',
+    group: typeof d.group === 'string' ? d.group : '',   // グループID（空ならグループなし）
     rotation: normalizeRotation(d.rotation),
     x: Number.isFinite(d.x) ? d.x : null,
     y: Number.isFinite(d.y) ? d.y : null,
@@ -205,6 +206,7 @@ function parseDesks(rawDesks) {
     normalizeSides(d);
   });
   placeUnplacedDesks(list);
+  normalizeGroups(list);
   return list;
 }
 
@@ -329,40 +331,65 @@ function nearestWall(p) {
   return { side, pos: side === 'top' || side === 'bottom' ? p.x : p.y };
 }
 
-// ===== 用途の文字をまとめる =====
-// 同じ用途で隣り合う机（机を囲む四角どうしのすき間が PURPOSE_GROUP_GAP 以下）を1グループにまとめる
-// A–B、B–C が隣り合っていれば A・B・C が1グループになる
-const PURPOSE_GROUP_GAP = 60;
+// ===== 机のグループ =====
+// 配置編集モードで複数の机を選んで「グループにする」と、同じ group（ID）が付く
+// グループ内の机は用途がそろい、index.html では用途の文字をグループの中央に1つだけ出す
 
-function boundsGap(a, b) {
-  const gx = Math.max(0, Math.max(a.x, b.x) - Math.min(a.x + a.w, b.x + b.w));
-  const gy = Math.max(0, Math.max(a.y, b.y) - Math.min(a.y + a.h, b.y + b.h));
-  return Math.hypot(gx, gy);
+// グループを整える：1台だけになったグループは解除し、グループ内の用途をそろえる（一番多い用途に合わせる）
+function normalizeGroups(desks) {
+  const members = new Map();
+  desks.forEach(d => {
+    if (!d.group) return;
+    if (!members.has(d.group)) members.set(d.group, []);
+    members.get(d.group).push(d);
+  });
+  members.forEach(list => {
+    if (list.length < 2) {
+      list.forEach(d => { d.group = ''; });
+      return;
+    }
+    const purpose = commonPurpose(list);
+    list.forEach(d => { d.purpose = purpose; });
+  });
 }
 
-// 戻り値: [{ purpose, x, y }]（x, y = グループ全体を囲む四角の中心。ここに文字を1つ出す）
+// 机の中で一番多い用途（用途なしは数えない。どれにも用途がなければ ''）
+function commonPurpose(list) {
+  const count = new Map();
+  list.forEach(d => { if (d.purpose) count.set(d.purpose, (count.get(d.purpose) || 0) + 1); });
+  let best = '', n = 0;
+  count.forEach((c, p) => { if (c > n) { best = p; n = c; } });
+  return best;
+}
+
+// 同じグループの机（グループなしなら自分だけ）
+function groupMembers(desk, desks) {
+  return desk.group ? desks.filter(d => d.group === desk.group) : [desk];
+}
+
+// グループごとの目印の色（グループIDから決める）
+function groupColor(groupId) {
+  let h = 0;
+  for (const ch of groupId) h = (h * 31 + ch.charCodeAt(0)) % 360;
+  return `hsl(${h}, 70%, 45%)`;
+}
+
+// 用途の文字を出す位置
+// グループの机はグループ全体を囲む四角の中央に1つ、グループなしの机は机ごとに1つ
+// 戻り値: [{ purpose, x, y }]
 function purposeGroups(desks) {
-  const list = desks.filter(d => d.purpose);
-  const bounds = list.map(deskBounds);
-  const parent = list.map((_, i) => i);
-  const find = i => (parent[i] === i ? i : (parent[i] = find(parent[i])));
-  for (let i = 0; i < list.length; i++) {
-    for (let j = i + 1; j < list.length; j++) {
-      if (list[i].purpose === list[j].purpose && boundsGap(bounds[i], bounds[j]) <= PURPOSE_GROUP_GAP) {
-        parent[find(i)] = find(j);
-      }
-    }
-  }
-  const groups = new Map();
-  list.forEach((d, i) => {
-    const root = find(i), b = bounds[i];
-    const g = groups.get(root);
-    if (!g) {
-      groups.set(root, { purpose: d.purpose, x1: b.x, y1: b.y, x2: b.x + b.w, y2: b.y + b.h });
+  const boxes = new Map();
+  desks.forEach(d => {
+    if (!d.purpose) return;
+    const key = d.group ? `g:${d.group}` : `d:${d.id}`;
+    const b = deskBounds(d);
+    const box = boxes.get(key);
+    if (!box) {
+      boxes.set(key, { purpose: d.purpose, x1: b.x, y1: b.y, x2: b.x + b.w, y2: b.y + b.h });
     } else {
-      g.x1 = Math.min(g.x1, b.x); g.y1 = Math.min(g.y1, b.y);
-      g.x2 = Math.max(g.x2, b.x + b.w); g.y2 = Math.max(g.y2, b.y + b.h);
+      box.x1 = Math.min(box.x1, b.x); box.y1 = Math.min(box.y1, b.y);
+      box.x2 = Math.max(box.x2, b.x + b.w); box.y2 = Math.max(box.y2, b.y + b.h);
     }
   });
-  return [...groups.values()].map(g => ({ purpose: g.purpose, x: (g.x1 + g.x2) / 2, y: (g.y1 + g.y2) / 2 }));
+  return [...boxes.values()].map(g => ({ purpose: g.purpose, x: (g.x1 + g.x2) / 2, y: (g.y1 + g.y2) / 2 }));
 }
