@@ -8,78 +8,191 @@
     .form-row { display: flex; align-items: center; flex-wrap: wrap; gap: 0.8rem; margin-bottom: 1rem; }
     button { border: none; border-radius: 6px; background: #1F487E; color: white; padding: 0.6rem 1.2rem; writing-mode: horizontal-tb; font-size: 0.95rem; cursor: pointer; transition: background-color 0.2s ease; }
     button:hover { background: #1D3461; }
+    button:disabled { background: #8a9bb0; cursor: default; }
     .form-row span { font-weight: 600; color: #212121; }
     #message { min-height: 1.4rem; margin-top: 0.5rem; color: #bf360c; }
-    #desks { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0.9rem; margin-top: 1rem; }
-    .desk-card { background: white; border-radius: 8px; border: 1px solid #dce3e8; box-shadow: 0 2px 6px rgba(30, 80, 115, 0.08); padding: 0.8rem; }
-    .desk-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.7rem; }
-    .desk-controls { display: flex; align-items: center; gap: 0.5rem; font-size: 0.86rem; }
-    .seat-list { background:#e8f4ff;margin: 0; padding: 0.5rem; list-style: none; display: grid; grid-template-columns: repeat(auto-fill,minmax(50px,1fr)); gap: 0.45rem; min-height: 42px; background:#f7fbff; border:1px dashed #b2cfe7; border-radius:6px; }
-    .seat-item { background:#e8f4ff; border:1px solid #90aebf; border-radius:4px; padding:4px 6px; text-align:center; font-size:0.82rem; cursor:pointer; user-select:none; }
-    .seat-item.dragging { opacity:0.4; }
-    .seat-item.drag-over { border-color:#0288d1; background:#d3efff; }
-    .desk-card.free { background: #AED9E0;border-color:#37718E; border-width: 2px;}
-    .desk-card.occupied { background: #FFA69E; border-color:#C33C54; border-width: 2px; }
-    #refreshBtn {border: none;border-radius: 6px;background: #d31733;color: white;padding: 0.6rem 1.2rem; font-size: 0.95rem;  font-weight: 600;  cursor: pointer;  transition: background-color 0.2s ease;}
-    #refreshBtn:hover {background: #A31621;}
+    #refreshBtn { background: #d31733; font-weight: 600; }
+    #refreshBtn:hover { background: #A31621; }
+    #modeBtn { background: #37718E; }
+    #modeBtn.editing { background: #e08e0b; }
+
+    /* ===== 選択中の机の操作パネル ===== */
+    #deskPanel { display: flex; align-items: center; flex-wrap: wrap; gap: 0.6rem; background: white; border: 1px solid #dce3e8; border-radius: 8px; padding: 0.6rem 0.8rem; margin-bottom: 0.8rem; min-height: 2.6rem; }
+    #deskPanel .panel-title { font-weight: 700; }
+    #deskPanel input, #deskPanel select { padding: 0.4rem 0.5rem; border: 1px solid #cfd8dc; border-radius: 4px; font-size: 0.95rem; }
+    #deskPanel input { width: 7rem; }
+    #deskPanel .hint { color: #555; }
+    #deskPanel .danger { background: #a33; }
+    #deskPanel .danger:hover { background: #811; }
+    .edit-only, .normal-only { display: none; }
+    body.mode-edit .edit-only, body.mode-normal .normal-only { display: inline-flex; align-items: center; gap: 0.4rem; }
+
+    /* ===== 見取り図 ===== */
+    #floorWrap { position: relative; width: 100%; overflow: hidden; }
+    #floor { position: absolute; left: 0; top: 0; transform-origin: 0 0; background: #f4f1ea; border: 3px solid #5b5b5b; box-sizing: border-box; border-radius: 4px; }
+    body.mode-edit #floor { background-color: #fbf8f1; background-image: linear-gradient(#e2ddd2 1px, transparent 1px), linear-gradient(90deg, #e2ddd2 1px, transparent 1px); background-size: 20px 20px; }
+
+    .desk { position: absolute; box-sizing: border-box; border-radius: 6px; border: 2px solid; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 14px; user-select: none; touch-action: none; }
+    .desk.free { background: #AED9E0; border-color: #37718E; }
+    .desk.occupied { background: #FFA69E; border-color: #C33C54; }
+    .desk.selected { outline: 3px solid #e08e0b; outline-offset: 3px; }
+    .desk.drop-target { box-shadow: 0 0 0 4px #0288d1; }
+    body.mode-edit .desk { cursor: move; }
+    body.mode-normal .desk { cursor: pointer; }
+    .desk .desk-name { font-weight: 700; pointer-events: none; }
+    .desk .desk-info { font-size: 12px; pointer-events: none; }
+
+    .chair { position: absolute; width: 24px; height: 24px; margin: -12px 0 0 -12px; border-radius: 50%; background: #e8f4ff; border: 1px solid #5b7c93; box-sizing: border-box; font-size: 11px; display: flex; align-items: center; justify-content: center; }
+    body.mode-normal .chair { cursor: grab; }
+    .chair.dragging { opacity: 0.4; }
   </style>
 </head>
-<body style="background-color: #CED3DC;">
+<body class="mode-normal" style="background-color: #CED3DC;">
   <h2>机と席の管理</h2>
   <div class="form-row">
     <button id="addDeskBtn" type="button">机を追加</button>
     <span id="deskStatus">残り机: 0</span>
     <button id="addSeatBtn" type="button">椅子を追加</button>
     <span id="seatStatus">残り椅子: 0</span>
-    <button id="refreshBtn">更新</button>
+    <button id="refreshBtn" type="button">更新</button>
+    <button id="modeBtn" type="button">配置編集モードにする</button>
   </div>
-  <div>椅子はダブルクリックで削除（プールに戻る）。<br>ドラッグ＆ドロップで机間移動可能。</div>
+  <div>机をクリックで選択。椅子はダブルクリックで削除（プールに戻る）、ドラッグ＆ドロップで机間移動可能。</div>
+  <div>机の位置・大きさ・向きを変えるときは<strong>配置編集モード</strong>に切り替えて、机をドラッグしてください。</div>
   <div>変更があった場合、ブラウザの再読み込みボタン、F5ではなく<strong>更新ボタン</strong>をクリックしてください。</div>
-  <div>結構ラグいので3回くらいゆっくり押してあげてください。</div>
 
   <div id="message" role="status" aria-live="polite"></div>
 
-  <div id="desks" aria-live="polite"></div>
+  <div id="deskPanel">
+    <span class="hint" id="panelHint">机をクリックすると、ここで操作できます。</span>
+    <span id="panelBody" hidden>
+      <span class="panel-title" id="panelName"></span>
+      <span class="normal-only">
+        <button id="statusBtn" type="button">空席</button>
+        <button id="panelAddSeatBtn" type="button">椅子＋</button>
+        <button id="panelRemoveSeatBtn" type="button">椅子−</button>
+      </span>
+      <span class="edit-only">
+        <label for="nameInput">名前</label>
+        <input id="nameInput" type="text" maxlength="12">
+        <label for="typeSelect">大きさ</label>
+        <select id="typeSelect"></select>
+        <button id="rotateBtn" type="button">回転</button>
+      </span>
+      <button id="deleteDeskBtn" type="button" class="danger">机を削除</button>
+    </span>
+  </div>
+
+  <div id="floorWrap">
+    <div id="floor" aria-live="polite"></div>
+  </div>
 
   <script>
     // ===== DOM要素の取得 =====
-    const deskCountInput = document.getElementById('deskCount');
-    const defaultSeatsInput = document.getElementById('defaultSeats');
-    const generateBtn = document.getElementById('generateBtn');
-    const clearBtn = document.getElementById('clearBtn');
-    const desksEl = document.getElementById('desks');        // 机全体を表示する要素
-    const message = document.getElementById('message');      // エラーメッセージ表示用
+    const floorWrap = document.getElementById('floorWrap');
+    const floorEl = document.getElementById('floor');        // 見取り図（机を置く部屋）
+    const message = document.getElementById('message');      // メッセージ表示用
+
+    // ===== 見取り図の設定 =====
+    // 見取り図は 1000 x 600 の論理座標で管理し、画面幅に合わせて拡大縮小する
+    const FLOOR_W = 1000;
+    const FLOOR_H = 600;
+    const GRID = 10;                                          // 机を動かすときのマス目
+    const CHAIR_SIZE = 24;
+    const DESK_TYPES = {
+      long:   { label: '長机',   w: 180, h: 60 },
+      medium: { label: '中机',   w: 120, h: 60 },
+      square: { label: '正方形', w: 90,  h: 90 },
+      big:    { label: '大机',   w: 180, h: 120 },
+    };
+    const DEFAULT_TYPE = 'long';
 
     // ===== グローバル変数 =====
-    const STORAGE_KEY = 'club_exhibition_desks';             // ローカルストレージのキー
     let desks = [];                                           // すべての机のデータ配列
     let totalDesks = 0;                                       // 最初に用意した机の総数
     let totalSeats = 0;                                       // 最初に用意した椅子の総数
     let remainingDesks = 0;                                   // まだ使われていない机の数
     let remainingSeats = 0;                                   // まだ使われていない椅子の数
+    let mode = 'normal';                                      // 'normal'（運用）または 'edit'（配置編集）
+    let selectedDeskId = null;
+    let floorScale = 1;
+    let deskDrag = null;                                      // 机をドラッグ中の情報
+    let chairDragging = false;
+    let lastLocalChange = 0;                                  // 最後に自分が変更した時刻
 
     function createSeat(id) {
       return { id };
     }
 
-    function createDesk(name, seatCount) {
-      const seats = Array.from({ length: seatCount }, (_, i) => 
+    function createDesk(name, seatCount, pos) {
+      const seats = Array.from({ length: seatCount }, (_, i) =>
         createSeat(`${name}-seat-${i + 1}`)
       );
-      return { 
+      return {
         id: `${Date.now()}-${Math.random()}`,  // ユニークなID生成
-        name, 
-        seatCount, 
+        name,
+        seatCount,
         status: 'free',                        // 'free'または'occupied'
-        seats 
+        seats,
+        type: DEFAULT_TYPE,                    // 机の大きさ（DESK_TYPESのキー）
+        rotation: 0,                           // 0 または 90
+        x: pos ? pos.x : null,                 // 見取り図上の左上座標
+        y: pos ? pos.y : null,
       };
     }
 
+    // 回転を考慮した机の幅・高さ
+    function deskSize(desk) {
+      const t = DESK_TYPES[desk.type] || DESK_TYPES[DEFAULT_TYPE];
+      return desk.rotation === 90 ? { w: t.h, h: t.w } : { w: t.w, h: t.h };
+    }
+
+    function clampDesk(desk) {
+      // 椅子が部屋からはみ出さないよう、壁から少し離す
+      const { w, h } = deskSize(desk);
+      const pad = 30;
+      desk.x = Math.max(pad, Math.min(FLOOR_W - w - pad, desk.x));
+      desk.y = Math.max(pad, Math.min(FLOOR_H - h - pad, desk.y));
+    }
+
+    // 他の机と重ならない空き場所を探す（見つからなければ左上）
+    function findFreeSpot(desk) {
+      const { w, h } = deskSize(desk);
+      const margin = CHAIR_SIZE + 10;   // 椅子の分だけ間をあける
+      for (let y = margin; y + h <= FLOOR_H; y += GRID * 2) {
+        for (let x = margin; x + w <= FLOOR_W; x += GRID * 2) {
+          const hit = desks.some(o => {
+            if (o === desk || o.x == null) return false;
+            const s = deskSize(o);
+            return x < o.x + s.w + margin && o.x < x + w + margin &&
+                   y < o.y + s.h + margin && o.y < y + h + margin;
+          });
+          if (!hit) return { x, y };
+        }
+      }
+      return { x: 0, y: 0 };
+    }
+
+    // 位置が未設定の机（古いデータなど）を自動で並べる
+    function placeUnplacedDesks() {
+      desks.forEach(d => {
+        if (!Number.isFinite(d.x) || !Number.isFinite(d.y)) {
+          d.x = null; d.y = null;
+          const spot = findFreeSpot(d);
+          d.x = spot.x; d.y = spot.y;
+        }
+        clampDesk(d);
+      });
+    }
+
+    function nextDeskName() {
+      const nums = desks.map(d => Number((d.name.match(/(\d+)$/) || [])[1]) || 0);
+      return `机 ${Math.max(0, ...nums) + 1}`;
+    }
+
     // ===== データ保存・読み込み =====
-    /**
-     * 現在のデータをローカルストレージに保存する
-     */
     const CLOUD_URL = "https://script.google.com/macros/s/AKfycbwZDawi8TC3dBhZqMEACrGEk2GnwVPqa8djNbCMCsPRX8evpzeBYaUZo8gJo8j75ek/exec";
+
     async function saveDesksToCloud(data) {
       await fetch(CLOUD_URL, {
         method: "POST",
@@ -91,13 +204,6 @@
       const res = await fetch(CLOUD_URL);
       return await res.json();
     }
-    
-    async function saveDesksToCloud(data) {
-      await fetch(CLOUD_URL, {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
-    }    
 
     function adjustDeskSeats(desk, desiredCount) {
       desiredCount = Number.isInteger(desiredCount) ? desiredCount : 0;
@@ -128,17 +234,24 @@
             status: d.status === 'occupied' ? 'occupied' : 'free',
             seats: Array.isArray(d.seats)
               ? d.seats.map(s => ({ id: s.id || `${d.name}-seat` }))
-              : []
+              : [],
+            type: DESK_TYPES[d.type] ? d.type : DEFAULT_TYPE,
+            rotation: d.rotation === 90 ? 90 : 0,
+            x: Number.isFinite(d.x) ? d.x : null,
+            y: Number.isFinite(d.y) ? d.y : null,
           }));
 
           desks.forEach(d => adjustDeskSeats(d, d.seatCount));
+          placeUnplacedDesks();
         }
       } catch (e) {
         console.warn("クラウド読み込み失敗", e);
       }
-    }    
+    }
 
     async function saveData() {
+      lastLocalChange = Date.now();
+
       // 使用中の机に置かれている椅子の数を計算
       const occupiedSeats = desks
         .filter(d => d.status === 'occupied')
@@ -152,12 +265,11 @@
         occupiedSeats,  // 使用中の机の椅子数を追加
         desks
       });
+      lastLocalChange = Date.now();
     }
 
-    function setDeskStatus(deskId) {
-      const desk = desks.find(d => d.id === deskId);
-      if (!desk) return;
-      desk.status = desk.status === 'free' ? 'occupied' : 'free';
+    // 変更を保存して画面に反映する
+    function commit() {
       saveData();
       render();
     }
@@ -169,308 +281,378 @@
       if (seatStatus) seatStatus.textContent = `残り椅子: ${remainingSeats}`;
     }
 
-    document.getElementById("refreshBtn").addEventListener("click", () => {
-      //location.reload();
-      renderDesks();
-    });
+    // ===== 見取り図の拡大縮小 =====
+    function fitFloor() {
+      floorScale = Math.min(1, floorWrap.clientWidth / FLOOR_W);
+      floorEl.style.width = `${FLOOR_W}px`;
+      floorEl.style.height = `${FLOOR_H}px`;
+      floorEl.style.transform = `scale(${floorScale})`;
+      floorWrap.style.height = `${FLOOR_H * floorScale}px`;
+    }
+    window.addEventListener('resize', fitFloor);
 
-    function render() {
-      // 入力フィールドに値を反映
-      if (deskCountInput) deskCountInput.value = totalDesks;
-      if (defaultSeatsInput) defaultSeatsInput.value = totalSeats;
-      
-      desksEl.innerHTML = '';
-      
-      // 机がない場合はメッセージを表示
-      if (desks.length === 0) {
-        //desksEl.innerHTML = '<p>机がありません。追加ボタンで机を追加してください。</p>';
-        updateStatus();
+    // ===== 椅子の並べ方 =====
+    // 机のまわり（長い辺を優先）に椅子を並べた座標（机の左上からの相対位置）を返す
+    function chairPositions(w, h, n) {
+      const step = CHAIR_SIZE + 4;
+      const off = CHAIR_SIZE / 2 + 3;
+      const capH = Math.max(1, Math.floor(w / step));   // 上下の辺に置ける数
+      const capV = Math.max(1, Math.floor(h / step));   // 左右の辺に置ける数
+      const sides = [
+        { key: 'top', cap: capH, long: w >= h },
+        { key: 'bottom', cap: capH, long: w >= h },
+        { key: 'left', cap: capV, long: h >= w },
+        { key: 'right', cap: capV, long: h >= w },
+      ];
+      // 長い辺 → 短い辺の順に、交互に詰める
+      const order = [...sides.filter(s => s.long), ...sides.filter(s => !s.long)];
+      const counts = { top: 0, bottom: 0, left: 0, right: 0 };
+      const assign = [];
+      for (let i = 0; i < n; i++) {
+        let side = null;
+        const longSides = order.filter(s => s.long && counts[s.key] < s.cap);
+        if (longSides.length) {
+          side = longSides.reduce((a, b) => (counts[b.key] < counts[a.key] ? b : a));
+        } else {
+          const rest = order.filter(s => counts[s.key] < s.cap);
+          side = rest.length
+            ? rest.reduce((a, b) => (counts[b.key] < counts[a.key] ? b : a))
+            : order.reduce((a, b) => (counts[b.key] < counts[a.key] ? b : a)); // 満席なら重ねて置く
+        }
+        assign.push({ side: side.key, idx: counts[side.key] });
+        counts[side.key]++;
+      }
+      return assign.map(({ side, idx }) => {
+        const m = counts[side];
+        switch (side) {
+          case 'top':    return { x: w * (idx + 1) / (m + 1), y: -off };
+          case 'bottom': return { x: w * (idx + 1) / (m + 1), y: h + off };
+          case 'left':   return { x: -off, y: h * (idx + 1) / (m + 1) };
+          default:       return { x: w + off, y: h * (idx + 1) / (m + 1) };
+        }
+      });
+    }
+
+    // ===== 椅子の移動 =====
+    function moveSeat(fromDeskId, seatIndex, toDeskId) {
+      const fromDesk = desks.find(d => d.id === fromDeskId);
+      const toDesk = desks.find(d => d.id === toDeskId);
+      if (!fromDesk || !toDesk || fromDesk === toDesk) return;
+      if (toDesk.seats.length >= 50) return;
+      const movedSeat = fromDesk.seats.splice(seatIndex, 1)[0];
+      if (!movedSeat) return;
+      toDesk.seats.push(movedSeat);
+      fromDesk.seatCount = fromDesk.seats.length;
+      toDesk.seatCount = toDesk.seats.length;
+      commit();
+    }
+
+    function addSeatToDesk(desk) {
+      if (!desk) return;
+      if (remainingSeats <= 0) {
+        message.textContent = '残り椅子がありません。';
         return;
       }
+      if (desk.seats.length >= 50) {
+        message.textContent = 'この机の椅子は最大です。';
+        return;
+      }
+      desk.seats.push(createSeat(`${desk.name}-seat-${desk.seats.length + 1}`));
+      desk.seatCount = desk.seats.length;
+      remainingSeats -= 1;
+      commit();
+    }
 
-      // 各机をループして画面に追加
+    function removeSeatFromDesk(desk, idx) {
+      if (!desk || desk.seats.length === 0) return;
+      const i = idx == null ? desk.seats.length - 1 : idx;
+      if (!desk.seats.splice(i, 1)[0]) return;
+      desk.seatCount = desk.seats.length;
+      remainingSeats += 1;
+      message.textContent = `椅子をプールに戻しました。残り椅子: ${remainingSeats}`;
+      commit();
+    }
+
+    // ===== 描画 =====
+    function render() {
+      floorEl.innerHTML = '';
+
       desks.forEach(desk => {
-        // 机カードの外枠を作成
-        const deskCard = document.createElement('div');
-        deskCard.className = `desk-card ${desk.status}`;
-        deskCard.dataset.id = desk.id;
+        const { w, h } = deskSize(desk);
+        const deskEl = document.createElement('div');
+        deskEl.className = `desk ${desk.status}` + (desk.id === selectedDeskId ? ' selected' : '');
+        deskEl.dataset.id = desk.id;
+        deskEl.style.left = `${desk.x}px`;
+        deskEl.style.top = `${desk.y}px`;
+        deskEl.style.width = `${w}px`;
+        deskEl.style.height = `${h}px`;
 
-        // 机ヘッダー（名前、ボタンなど）
-        const header = document.createElement('div');
-        header.className = 'desk-header';
+        const name = document.createElement('span');
+        name.className = 'desk-name';
+        name.textContent = desk.name;
+        const info = document.createElement('span');
+        info.className = 'desk-info';
+        info.textContent = `${desk.status === 'occupied' ? '使用中' : '空席'} / ${desk.seats.length}席`;
+        deskEl.append(name, info);
 
-        // 机の名前
-        const title = document.createElement('span');
-        title.className = 'desk-id';
-        title.textContent = desk.name;
+        // 机の選択・ドラッグ（配置編集モードのみ移動）
+        deskEl.addEventListener('pointerdown', e => onDeskPointerDown(e, desk, deskEl));
 
-        // 空席/使用中ボタン
-        const statusBtn = document.createElement('button');
-        statusBtn.textContent = desk.status === 'occupied' ? '使用中' : '空席';
-        statusBtn.style.marginRight = '8px';
-        statusBtn.addEventListener('click', () => setDeskStatus(desk.id));
-
-        // 操作ボタン（椅子追加、削除）
-        const controls = document.createElement('span');
-        controls.className = 'desk-controls';
-        controls.innerHTML =`<button data-desk-id="${desk.id}" class="delete-desk">削除</button>`;
-
-        header.appendChild(title);
-        header.appendChild(statusBtn);
-        header.appendChild(controls);
-
-        // 椅子リスト
-        const seatList = document.createElement('ul');
-        seatList.className = 'seat-list';
-
-        // 各椅子をループして追加
-        desk.seats.forEach((seat, idx) => {
-          const seatItem = document.createElement('li');
-          seatItem.className = 'seat-item';
-          seatItem.textContent = `席 ${idx + 1}`;
-          seatItem.dataset.deskId = desk.id;
-          seatItem.dataset.seatIndex = idx;
-          seatItem.dataset.id = `${desk.id}-seat-${idx}`;
-
-          // ドラッグ開始
-          seatItem.draggable = true;
-          seatItem.title = 'ダブルクリックするとプールに戻ります';
-          seatItem.addEventListener('dragstart', e => {
-            e.dataTransfer.setData('application/json', JSON.stringify({ deskId: desk.id, seatIndex: idx }));
-            e.dataTransfer.effectAllowed = 'move';
-            e.target.classList.add('dragging');
-          });
-
-          // ダブルクリック時：椅子をプール（元の場所）に戻す
-          seatItem.addEventListener('dblclick', e => {
-            e.preventDefault();
-            const fromDesk = desks.find(d => d.id === desk.id);
-            if (!fromDesk) return;
-            const removedSeat = fromDesk.seats.splice(idx, 1)[0];
-            if (!removedSeat) return;
-            fromDesk.seatCount = fromDesk.seats.length;
-            remainingSeats += 1;
-            message.textContent = `椅子をプールに戻しました。残り椅子: ${remainingSeats}`;
-            saveData();
-            render();
-          });
-
-          // ドラッグ終了
-          seatItem.addEventListener('dragend', e => {
-            e.target.classList.remove('dragging');
-          });
-
-          // ドラッグ中（別の椅子の上）
-          seatItem.addEventListener('dragover', e => {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
-            e.currentTarget.classList.add('drag-over');
-          });
-
-          // ドラッグ外れる
-          seatItem.addEventListener('dragleave', e => {
-            e.currentTarget.classList.remove('drag-over');
-          });
-
-          // ドロップ（椅子を別の椅子の位置に置く）
-          seatItem.addEventListener('drop', e => {
-            e.preventDefault();
-            e.stopPropagation();
-            e.currentTarget.classList.remove('drag-over');
-            const data = JSON.parse(e.dataTransfer.getData('application/json'));
-            const fromDesk = desks.find(d => d.id === data.deskId);
-            const toDesk = desks.find(d => d.id === desk.id);
-            if (!fromDesk || !toDesk) return;
-            if (fromDesk === toDesk && data.seatIndex === idx) return;
-
-            const movedSeat = fromDesk.seats.splice(data.seatIndex, 1)[0];
-            if (!movedSeat) return;
-
-            let targetIndex = idx;
-            if (fromDesk === toDesk && data.seatIndex < idx) {
-              targetIndex--;
-            }
-            toDesk.seats.splice(targetIndex, 0, movedSeat);
-
-            fromDesk.seatCount = fromDesk.seats.length;
-            toDesk.seatCount = toDesk.seats.length;
-            saveData();
-            render();
-          });
-
-          seatList.appendChild(seatItem);
-        });
-
-        // 椅子リストへのドラッグ操作
-        seatList.addEventListener('dragover', e => {
+        // 椅子のドロップ先
+        deskEl.addEventListener('dragover', e => {
+          if (mode !== 'normal') return;
           e.preventDefault();
           e.dataTransfer.dropEffect = 'move';
+          deskEl.classList.add('drop-target');
         });
-
-        seatList.addEventListener('drop', e => {
+        deskEl.addEventListener('dragleave', e => {
+          if (!deskEl.contains(e.relatedTarget)) deskEl.classList.remove('drop-target');
+        });
+        deskEl.addEventListener('drop', e => {
           e.preventDefault();
-          const data = JSON.parse(e.dataTransfer.getData('application/json'));
-          const fromDesk = desks.find(d => d.id === data.deskId);
-          const toDesk = desks.find(d => d.id === desk.id);
-          if (!fromDesk || !toDesk) return;
-          const movedSeat = fromDesk.seats.splice(data.seatIndex, 1)[0];
-          if (!movedSeat) return;
-
-          toDesk.seats.push(movedSeat);
-          fromDesk.seatCount = fromDesk.seats.length;
-          toDesk.seatCount = toDesk.seats.length;
-          saveData();
-          render();
+          deskEl.classList.remove('drop-target');
+          try {
+            const data = JSON.parse(e.dataTransfer.getData('application/json'));
+            moveSeat(data.deskId, data.seatIndex, desk.id);
+          } catch (_) { /* 椅子以外のドロップは無視 */ }
         });
 
-        // 机カードに要素を追加
-        deskCard.appendChild(header);
-        deskCard.appendChild(seatList);
-        desksEl.appendChild(deskCard);
+        // 椅子
+        chairPositions(w, h, desk.seats.length).forEach((pos, idx) => {
+          const chair = document.createElement('div');
+          chair.className = 'chair';
+          chair.textContent = idx + 1;
+          chair.style.left = `${pos.x}px`;
+          chair.style.top = `${pos.y}px`;
+          chair.title = 'ダブルクリックするとプールに戻ります';
+          chair.draggable = mode === 'normal';
+          chair.addEventListener('pointerdown', e => e.stopPropagation());
+          chair.addEventListener('dragstart', e => {
+            chairDragging = true;
+            e.dataTransfer.setData('application/json', JSON.stringify({ deskId: desk.id, seatIndex: idx }));
+            e.dataTransfer.effectAllowed = 'move';
+            chair.classList.add('dragging');
+          });
+          chair.addEventListener('dragend', () => {
+            chairDragging = false;
+            chair.classList.remove('dragging');
+          });
+          chair.addEventListener('dblclick', e => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (mode !== 'normal') return;
+            removeSeatFromDesk(desk, idx);
+          });
+          deskEl.appendChild(chair);
+        });
+
+        floorEl.appendChild(deskEl);
       });
 
-      // 各機の「＋椅子」ボタンにイベント設定
-      document.querySelectorAll('.add-seat').forEach(btn => {
-        btn.addEventListener('click', e => {
-          const deskId = e.currentTarget.dataset.deskId;
-          if (remainingSeats <= 0) {
-            //message.textContent = '残り椅子がありません。';
-            return;
-          }
-          const desk = desks.find(d => d.id === deskId);
-          if (!desk) return;
-          const newSeat = createSeat(`${desk.name}-seat-${desk.seats.length + 1}`);
-          desk.seats.push(newSeat);
-          desk.seatCount = desk.seats.length;
-          remainingSeats -= 1;
-          saveData();
-          render();
-        });
-      });
-
-      // 各機の「削除」ボタンにイベント設定
-      document.querySelectorAll('.delete-desk').forEach(btn => {
-        btn.addEventListener('click', e => {
-          const deskId = e.currentTarget.dataset.deskId;
-          const desk = desks.find(d => d.id === deskId);
-          if (!desk) return;
-          // 残り机に戻し、椅子も在庫へ戻す
-          remainingDesks += 1;
-          remainingSeats += desk.seats.length;
-          desks = desks.filter(d => d.id !== deskId);
-          saveData();
-          render();
-        });
-      });
+      updatePanel();
       updateStatus();
     }
 
-    // ===== ボタンイベント設定 =====
-    if (generateBtn) {
-      generateBtn.addEventListener('click', () => {
-        message.textContent = '';
-        const deskCount = Number(deskCountInput?.value || 0);
-        const totalSeatCount = Number(defaultSeatsInput?.value || 0);
-        if (!Number.isInteger(deskCount) || deskCount < 0 || deskCount > 200) {
-          message.textContent = '合計机数は0〜200の整数で指定してください。';
-          return;
-        }
-        if (!Number.isInteger(totalSeatCount) || totalSeatCount < 0 || totalSeatCount > 500) {
-          message.textContent = '合計椅子数は0〜500の整数で指定してください。';
-          return;
-        }
-        totalDesks = deskCount;
-        totalSeats = totalSeatCount;
-        remainingDesks = deskCount;
-        remainingSeats = totalSeatCount;
-        desks = [];
-        saveData();
-        render();
-      });
-    }
-
-    const addDeskBtn = document.getElementById('addDeskBtn');
-    const addSeatBtn = document.getElementById('addSeatBtn');
-
-    // 「机を追加」ボタン
-    if (addDeskBtn) {
-      addDeskBtn.addEventListener('click', () => {
-        message.textContent = '';
-        if (remainingDesks <= 0) {
-          //message.textContent = '残り机がありません。';
-          return;
-        }
-        const newDeskId = desks.length + 1;
-        desks.push(createDesk(`机 ${newDeskId}`, 0));
-        remainingDesks -= 1;
-        saveData();
-        render();
-      });
-    }
-
-    // 「椅子を追加」ボタン
-    if (addSeatBtn) {
-      addSeatBtn.addEventListener('click', () => {
-        message.textContent = '';
-        if (remainingSeats <= 0) {
-          //message.textContent = '残り椅子がありません。';
-          return;
-        }
-        if (desks.length === 0) {
-          //message.textContent = '先に机を追加してください。';
-          return;
-        }
-        const targetDesk = desks[desks.length - 1];
-        if (targetDesk.seats.length >= 50) {
-          //message.textContent = 'この机の椅子は最大です。';
-          return;
-        }
-        targetDesk.seats.push(createSeat(`${targetDesk.name}-seat-${targetDesk.seats.length + 1}`));
-        targetDesk.seatCount = targetDesk.seats.length;
-        remainingSeats -= 1;
-        saveData();
-        render();
-      });
-    }
-
-    // 「クリア」ボタン
-    if (clearBtn) {
-      clearBtn.addEventListener('click', () => {
-        desks = [];
-        totalDesks = 0;
-        totalSeats = 0;
-        remainingDesks = 0;
-        remainingSeats = 0;
-        localStorage.removeItem(STORAGE_KEY);
-        render();
-      });
-    }
-    
-    // ===== ページ読み込み時 =====
-    window.addEventListener('DOMContentLoaded', async () => {
-
-      // クラウドから読み込み
-      await loadData();
-
-      // クラウドにデータが全くない場合だけ初期化
-      if (desks.length === 0 && remainingDesks === 0 && remainingSeats === 0) {
-        if (deskCountInput && defaultSeatsInput) {
-          totalDesks = Number(deskCountInput.value);
-          totalSeats = Number(defaultSeatsInput.value);
-          remainingDesks = totalDesks;
-          remainingSeats = totalSeats;
-          desks = [];
-          await saveData();   // ← クラウドに初期データ保存
-        }
+    // ===== 机のドラッグ（Pointer Eventsでタッチにも対応） =====
+    function onDeskPointerDown(e, desk, deskEl) {
+      if (e.button !== 0) return;
+      if (selectedDeskId !== desk.id) {
+        selectedDeskId = desk.id;
+        document.querySelectorAll('.desk.selected').forEach(el => el.classList.remove('selected'));
+        deskEl.classList.add('selected');
+        updatePanel();
       }
+      if (mode !== 'edit') return;
+      e.preventDefault();
+      deskEl.setPointerCapture(e.pointerId);
+      deskDrag = { desk, deskEl, startX: e.clientX, startY: e.clientY, origX: desk.x, origY: desk.y, moved: false };
+    }
 
-      // 画面に反映
+    floorEl.addEventListener('pointermove', e => {
+      if (!deskDrag) return;
+      const { desk, deskEl } = deskDrag;
+      const dx = (e.clientX - deskDrag.startX) / floorScale;
+      const dy = (e.clientY - deskDrag.startY) / floorScale;
+      desk.x = Math.round((deskDrag.origX + dx) / GRID) * GRID;
+      desk.y = Math.round((deskDrag.origY + dy) / GRID) * GRID;
+      clampDesk(desk);
+      deskEl.style.left = `${desk.x}px`;
+      deskEl.style.top = `${desk.y}px`;
+      if (desk.x !== deskDrag.origX || desk.y !== deskDrag.origY) deskDrag.moved = true;
+    });
+
+    function endDeskDrag() {
+      if (!deskDrag) return;
+      const moved = deskDrag.moved;
+      deskDrag = null;
+      if (moved) saveData();
+    }
+    floorEl.addEventListener('pointerup', endDeskDrag);
+    floorEl.addEventListener('pointercancel', endDeskDrag);
+
+    // 見取り図の何もないところをクリックで選択解除
+    floorEl.addEventListener('pointerdown', e => {
+      if (e.target === floorEl) {
+        selectedDeskId = null;
+        render();
+      }
+    });
+
+    // ===== 選択中の机の操作パネル =====
+    const panelHint = document.getElementById('panelHint');
+    const panelBody = document.getElementById('panelBody');
+    const panelName = document.getElementById('panelName');
+    const statusBtn = document.getElementById('statusBtn');
+    const nameInput = document.getElementById('nameInput');
+    const typeSelect = document.getElementById('typeSelect');
+
+    Object.entries(DESK_TYPES).forEach(([key, t]) => {
+      const opt = document.createElement('option');
+      opt.value = key;
+      opt.textContent = t.label;
+      typeSelect.appendChild(opt);
+    });
+
+    function selectedDesk() {
+      return desks.find(d => d.id === selectedDeskId) || null;
+    }
+
+    function updatePanel() {
+      const desk = selectedDesk();
+      if (!desk) {
+        selectedDeskId = null;
+        panelHint.hidden = false;
+        panelBody.hidden = true;
+        return;
+      }
+      panelHint.hidden = true;
+      panelBody.hidden = false;
+      panelName.textContent = `${desk.name}（${desk.seats.length}席）`;
+      statusBtn.textContent = desk.status === 'occupied' ? '使用中 → 空席にする' : '空席 → 使用中にする';
+      if (document.activeElement !== nameInput) nameInput.value = desk.name;
+      typeSelect.value = desk.type;
+    }
+
+    statusBtn.addEventListener('click', () => {
+      const desk = selectedDesk();
+      if (!desk) return;
+      desk.status = desk.status === 'free' ? 'occupied' : 'free';
+      commit();
+    });
+
+    document.getElementById('panelAddSeatBtn').addEventListener('click', () => {
+      message.textContent = '';
+      addSeatToDesk(selectedDesk());
+    });
+
+    document.getElementById('panelRemoveSeatBtn').addEventListener('click', () => {
+      removeSeatFromDesk(selectedDesk());
+    });
+
+    nameInput.addEventListener('change', () => {
+      const desk = selectedDesk();
+      const name = nameInput.value.trim();
+      if (!desk || !name) return;
+      desk.name = name;
+      commit();
+    });
+
+    typeSelect.addEventListener('change', () => {
+      const desk = selectedDesk();
+      if (!desk) return;
+      desk.type = typeSelect.value;
+      clampDesk(desk);
+      commit();
+    });
+
+    document.getElementById('rotateBtn').addEventListener('click', () => {
+      const desk = selectedDesk();
+      if (!desk) return;
+      // 中心を軸に回転させる
+      const before = deskSize(desk);
+      desk.rotation = desk.rotation === 90 ? 0 : 90;
+      const after = deskSize(desk);
+      desk.x = Math.round((desk.x + (before.w - after.w) / 2) / GRID) * GRID;
+      desk.y = Math.round((desk.y + (before.h - after.h) / 2) / GRID) * GRID;
+      clampDesk(desk);
+      commit();
+    });
+
+    document.getElementById('deleteDeskBtn').addEventListener('click', () => {
+      const desk = selectedDesk();
+      if (!desk) return;
+      if (!confirm(`${desk.name} を削除しますか？（椅子はプールに戻ります）`)) return;
+      // 残り机に戻し、椅子も在庫へ戻す
+      remainingDesks += 1;
+      remainingSeats += desk.seats.length;
+      desks = desks.filter(d => d.id !== desk.id);
+      selectedDeskId = null;
+      commit();
+    });
+
+    // ===== 上部ボタン =====
+    // 「机を追加」ボタン：空いている場所に置いて選択する
+    document.getElementById('addDeskBtn').addEventListener('click', () => {
+      message.textContent = '';
+      if (remainingDesks <= 0) {
+        message.textContent = '残り机がありません。';
+        return;
+      }
+      const desk = createDesk(nextDeskName(), 0);
+      const spot = findFreeSpot(desk);
+      desk.x = spot.x;
+      desk.y = spot.y;
+      desks.push(desk);
+      remainingDesks -= 1;
+      selectedDeskId = desk.id;
+      commit();
+    });
+
+    // 「椅子を追加」ボタン：選択中の机（なければ最後に追加した机）に追加
+    document.getElementById('addSeatBtn').addEventListener('click', () => {
+      message.textContent = '';
+      if (desks.length === 0) {
+        message.textContent = '先に机を追加してください。';
+        return;
+      }
+      addSeatToDesk(selectedDesk() || desks[desks.length - 1]);
+    });
+
+    // 「更新」ボタン：クラウドから最新データを取り直す
+    document.getElementById('refreshBtn').addEventListener('click', async () => {
+      message.textContent = '';
+      await loadData();
       render();
     });
-    // ===== リアルタイム更新（3秒ごと） =====
+
+    // モード切替
+    const modeBtn = document.getElementById('modeBtn');
+    modeBtn.addEventListener('click', () => {
+      mode = mode === 'normal' ? 'edit' : 'normal';
+      document.body.classList.toggle('mode-edit', mode === 'edit');
+      document.body.classList.toggle('mode-normal', mode === 'normal');
+      modeBtn.classList.toggle('editing', mode === 'edit');
+      modeBtn.textContent = mode === 'edit' ? '配置編集を終了' : '配置編集モードにする';
+      message.textContent = mode === 'edit' ? '配置編集モード：机をドラッグして動かせます。' : '';
+      render();
+    });
+
+    // ===== ページ読み込み時 =====
+    window.addEventListener('DOMContentLoaded', async () => {
+      fitFloor();
+      await loadData();
+      render();
+    });
+
+    // ===== リアルタイム更新（2秒ごと） =====
+    // 操作中・保存直後は、自分の変更が巻き戻らないよう読み込みを止める
     setInterval(async () => {
-      await loadData();  // クラウドから最新データ取得
-      render();          // 画面に反映
+      if (deskDrag || chairDragging) return;
+      if (document.activeElement === nameInput) return;
+      if (Date.now() - lastLocalChange < 4000) return;
+      await loadData();
+      if (deskDrag || chairDragging || Date.now() - lastLocalChange < 4000) return;
+      render();
     }, 2000);
   </script>
 </body>
