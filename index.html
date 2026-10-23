@@ -72,6 +72,14 @@
         </section>
         <section><!-- 空席状況 -->
           <h3 style="color: #f0f6da;">現在の席状況</h3>
+          <!-- 簡易見取り図（seat.html で設定した配置を表示。使用中の机は赤） -->
+          <div id="seat-map-wrap" hidden>
+            <svg id="seat-map" viewBox="0 0 1000 600" role="img" aria-label="席の見取り図（赤い机は使用中）"></svg>
+            <div class="seat-map-legend">
+              <span class="seat-map-key free"></span>空席
+              <span class="seat-map-key occupied"></span>使用中
+            </div>
+          </div>
           <p id="seat-status" style="color: #f0f6da;">現在の席状況: <span id="status-text">不明</span></p>  <!-- seat.htmlの内容を表示 -->
         </section>
         <section>
@@ -182,14 +190,49 @@
       </div>
     </div>
   </main>
+  <script src="seat_layout.js"></script>
   <script>
     const CLOUD_URL = "https://script.google.com/macros/s/AKfycbwZDawi8TC3dBhZqMEACrGEk2GnwVPqa8djNbCMCsPRX8evpzeBYaUZo8gJo8j75ek/exec";
+
+    // 簡易見取り図を描く（机と椅子の形だけ。使用中の机は赤）
+    function drawSeatMap(rawDesks) {
+      const wrap = document.getElementById('seat-map-wrap');
+      const svg = document.getElementById('seat-map');
+      if (!wrap || !svg) return;
+      if (!Array.isArray(rawDesks) || rawDesks.length === 0) {
+        wrap.hidden = true;
+        return;
+      }
+      const desks = parseDesks(rawDesks);
+      // 部屋の枠（数値だけを埋め込むので innerHTML で問題ない）
+      let html = `<rect class="room" x="2" y="2" width="${FLOOR_W - 4}" height="${FLOOR_H - 4}" rx="8"/>`;
+      desks.forEach(d => {
+        const { w, h } = deskSize(d);
+        const cx = d.x + w / 2, cy = d.y + h / 2;
+        const cls = d.status === 'occupied' ? 'occupied' : 'free';
+        html += `<g class="${cls}" transform="rotate(${d.rotation} ${cx} ${cy})">`;
+        html += `<rect class="desk" x="${d.x}" y="${d.y}" width="${w}" height="${h}" rx="5"/>`;
+        chairLayout(d).forEach(p => {
+          html += `<circle class="chair" cx="${d.x + p.x}" cy="${d.y + p.y}" r="${CHAIR_SIZE / 2}"/>`;
+        });
+        html += '</g>';
+      });
+      svg.innerHTML = html;
+      wrap.hidden = false;
+    }
 
     async function loadSeatStatus() {
       try {
         const res = await fetch(CLOUD_URL);
         const data = await res.json();
-        
+
+        // 見取り図を更新（失敗しても席数の表示は続ける）
+        try {
+          drawSeatMap(data && data.desks);
+        } catch (e) {
+          console.warn("見取り図の描画失敗", e);
+        }
+
         if (data && data.remainingSeats !== undefined && data.totalSeats !== undefined) {
           const statusText = document.getElementById('status-text');
           if (statusText) {
