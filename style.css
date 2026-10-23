@@ -461,8 +461,8 @@ details[open] > summary::after {
 }
 .seat-map-key.free { background: #AED9E0; }
 .seat-map-key.occupied { background: #FF5252; }
-/* スタッフエリアは机より前に描くので、中の机が透けて見える程度の濃さにする */
-#seat-map .area rect { fill: rgba(80, 80, 80, 0.75); stroke: #c8c8c8; stroke-width: 3; stroke-dasharray: 12 8; }
+/* スタッフエリアは机の下に描く */
+#seat-map .area rect { fill: rgba(200, 200, 200, 0.18); stroke: #c8c8c8; stroke-width: 3; stroke-dasharray: 12 8; }
 #seat-map .area text { fill: #e6e6e6; font-weight: 700; letter-spacing: 0.1em; text-anchor: middle; dominant-baseline: central; }
 #seat-map .staff .desk { fill: #bdbdbd; stroke: #777; }
 #seat-map .staff .chair { fill: #e0e0e0; stroke: #777; stroke-width: 2; }
