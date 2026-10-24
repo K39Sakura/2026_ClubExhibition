@@ -72,6 +72,16 @@
         </section>
         <section><!-- 空席状況 -->
           <h3 style="color: #f0f6da;">現在の席状況</h3>
+          <!-- 簡易見取り図（seat.html で設定した配置を表示。使用中の机は赤） -->
+          <div id="seat-map-wrap" hidden>
+            <svg id="seat-map" viewBox="0 0 1000 600" role="img" aria-label="席の見取り図（赤い机は使用中）"></svg>
+            <div class="seat-map-legend">
+              <span class="seat-map-key free"></span>空席
+              <span class="seat-map-key occupied"></span>使用中
+              <span id="seat-map-staff-key" hidden><span class="seat-map-key staff"></span>スタッフ</span>
+              <span id="seat-map-other-key" hidden><span class="seat-map-key other"></span>受付・置き場など</span>
+            </div>
+          </div>
           <p id="seat-status" style="color: #f0f6da;">現在の席状況: <span id="status-text">不明</span></p>  <!-- seat.htmlの内容を表示 -->
         </section>
         <section>
@@ -182,21 +192,93 @@
       </div>
     </div>
   </main>
+  <script src="seat_layout.js"></script>
   <script>
     const CLOUD_URL = "https://script.google.com/macros/s/AKfycbwZDawi8TC3dBhZqMEACrGEk2GnwVPqa8djNbCMCsPRX8evpzeBYaUZo8gJo8j75ek/exec";
+
+    // SVG に文字を埋め込むときのエスケープ
+    function escapeXml(text) {
+      return String(text).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
+    // 簡易見取り図を描く（机と椅子の形だけ。使用中の机は赤、スタッフエリアの机はグレー）
+    function drawSeatMap(rawDesks, rawAreas, rawEntrances) {
+      const wrap = document.getElementById('seat-map-wrap');
+      const svg = document.getElementById('seat-map');
+      if (!wrap || !svg) return;
+      const desks = Array.isArray(rawDesks) ? parseDesks(rawDesks) : [];
+      const areas = parseAreas(rawAreas);
+      const entrances = parseEntrances(rawEntrances);
+      if (desks.length === 0 && areas.length === 0 && entrances.length === 0) {
+        wrap.hidden = true;
+        return;
+      }
+      // 部屋の枠
+      let html = `<rect class="room" x="2" y="2" width="${FLOOR_W - 4}" height="${FLOOR_H - 4}" rx="8"/>`;
+      // スタッフエリア（机より先に描いて一番下に表示する）。文字の大きさはエリアに収まるように調整
+      areas.forEach(a => {
+        const size = Math.max(14, Math.min(40, a.h * 0.4, a.w / Math.max(1, a.label.length) * 1.4));
+        html += `<g class="area"><rect x="${a.x}" y="${a.y}" width="${a.w}" height="${a.h}" rx="6"/>`;
+        html += `<text x="${a.x + a.w / 2}" y="${a.y + a.h / 2}" font-size="${size}">${escapeXml(a.label)}</text></g>`;
+      });
+      let hasOther = false;
+      desks.forEach(d => {
+        const { w, h } = deskSize(d);
+        const cx = d.x + w / 2, cy = d.y + h / 2;
+        let cls = d.status === 'occupied' ? 'occupied' : 'free';
+        if (isStaffDesk(d, areas)) cls = 'staff';
+        else if (!isGuestDesk(d, areas)) {
+          cls = 'other';
+          hasOther = true;
+        }
+        html += `<g class="${cls}" transform="rotate(${d.rotation} ${cx} ${cy})">`;
+        html += `<rect class="desk" x="${d.x}" y="${d.y}" width="${w}" height="${h}" rx="5"/>`;
+        chairLayout(d).forEach(p => {
+          html += `<circle class="chair" cx="${d.x + p.x}" cy="${d.y + p.y}" r="${CHAIR_SIZE / 2}"/>`;
+        });
+        html += '</g>';
+      });
+      // 用途の文字：グループの机はグループの中央に1つだけ、グループなしの机は机ごとに出す
+      // （傾けずに表示。机からはみ出してもよいよう縁取りで読みやすくする）
+      purposeGroups(desks).forEach(g => {
+        const size = g.purpose.length > 6 ? 22 : 26;
+        html += `<text class="purpose" x="${g.x}" y="${g.y}" font-size="${size}">${escapeXml(g.purpose)}</text>`;
+      });
+      // 入口（壁の上に描く）
+      entrances.forEach(ent => {
+        const r = entranceRect(ent);
+        const p = entranceLabelPoint(ent);
+        html += `<g class="entrance"><rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" rx="3"/>`;
+        html += `<text x="${p.x}" y="${p.y}">入口</text></g>`;
+      });
+      svg.innerHTML = html;
+      wrap.hidden = false;
+      document.getElementById('seat-map-staff-key').hidden = areas.length === 0;
+      document.getElementById('seat-map-other-key').hidden = !hasOther;
+    }
 
     async function loadSeatStatus() {
       try {
         const res = await fetch(CLOUD_URL);
         const data = await res.json();
-        
+
+        // 見取り図を更新（失敗しても席数の表示は続ける）
+        try {
+          drawSeatMap(data && data.desks, data && data.areas, data && data.entrances);
+        } catch (e) {
+          console.warn("見取り図の描画失敗", e);
+        }
+
         if (data && data.remainingSeats !== undefined && data.totalSeats !== undefined) {
           const statusText = document.getElementById('status-text');
           if (statusText) {
             // 使用中の机に置かれている椅子数を分子として計算
+            // スタッフエリアの机・受付など用途がプレイ以外の机の椅子（excludedSeats）は合計から外す
             const occupiedSeats = data.occupiedSeats || 0;
-            const percentage = data.totalSeats > 0 
-              ? Math.round((occupiedSeats / data.totalSeats) * 100) 
+            const excludedSeats = data.excludedSeats ?? data.staffSeats ?? 0;
+            const guestSeats = Math.max(0, data.totalSeats - excludedSeats);
+            const percentage = guestSeats > 0
+              ? Math.round((occupiedSeats / guestSeats) * 100)
               : 0;
               if (percentage >= 100) {
                 statusText.innerHTML = "現在満席です<br>( TДT)ｺﾞﾒﾝﾖｰ ";
@@ -205,7 +287,7 @@
                 return;
               } else {
                 // statusText.textContent = `${percentage}%`;
-                statusText.textContent = `使用率: ${percentage}% / 残り ${data.totalSeats - occupiedSeats} 席`;
+                statusText.textContent = `使用率: ${percentage}% / 残り ${guestSeats - occupiedSeats} 席`;
               }
 
               if (percentage < 50) {

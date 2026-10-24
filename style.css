@@ -428,3 +428,48 @@ details[open] > summary::after {
   }
 }
 
+
+/* ===== index.html の簡易見取り図（現在の席状況） ===== */
+#seat-map-wrap {
+  width: 100%;
+  max-width: 460px;
+  margin: 0.4rem auto 0;
+}
+#seat-map {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+#seat-map .room { fill: rgba(240, 246, 218, 0.08); stroke: #f0f6da; stroke-width: 4; }
+#seat-map .desk { stroke-width: 3; }
+#seat-map .free .desk { fill: #AED9E0; stroke: #37718E; }
+#seat-map .free .chair { fill: #f0f6da; stroke: #37718E; stroke-width: 2; }
+#seat-map .occupied .desk { fill: #FF5252; stroke: #C33C54; }
+#seat-map .occupied .chair { fill: #FFA69E; stroke: #C33C54; stroke-width: 2; }
+.seat-map-legend {
+  margin-top: 0.3rem;
+  color: #f0f6da;
+  font-size: 0.85rem;
+}
+.seat-map-key {
+  display: inline-block;
+  width: 0.9em;
+  height: 0.9em;
+  margin: 0 0.25em 0 0.8em;
+  vertical-align: -0.1em;
+  border-radius: 2px;
+}
+.seat-map-key.free { background: #AED9E0; }
+.seat-map-key.occupied { background: #FF5252; }
+/* スタッフエリアは机の下に描く */
+#seat-map .area rect { fill: rgba(200, 200, 200, 0.18); stroke: #c8c8c8; stroke-width: 3; stroke-dasharray: 12 8; }
+#seat-map .area text { fill: #e6e6e6; font-weight: 700; letter-spacing: 0.1em; text-anchor: middle; dominant-baseline: central; }
+#seat-map .staff .desk { fill: #bdbdbd; stroke: #777; }
+#seat-map .staff .chair { fill: #e0e0e0; stroke: #777; stroke-width: 2; }
+.seat-map-key.staff { background: #bdbdbd; }
+#seat-map .entrance rect { fill: #66bb6a; stroke: #2e7d32; stroke-width: 3; }
+#seat-map .entrance text { fill: #a5d6a7; font-size: 26px; font-weight: 700; text-anchor: middle; dominant-baseline: central; }
+#seat-map .other .desk { fill: #e8d3a0; stroke: #a07f3a; }
+#seat-map .other .chair { fill: #f3e6c4; stroke: #a07f3a; stroke-width: 2; }
+#seat-map .purpose { fill: #1e1e1e; stroke: #f0f6da; stroke-width: 5; paint-order: stroke; font-weight: 700; text-anchor: middle; dominant-baseline: central; }
+.seat-map-key.other { background: #e8d3a0; }
